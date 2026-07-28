@@ -6,30 +6,19 @@
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
 
     <application
-        android:label="وقتي"
         android:name="${applicationName}"
+        android:label="وقتي"
         android:icon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:hardwareAccelerated="true"
         android:allowBackup="false">
 
-        <!--
-        ╔══════════════════════════════════════════════════════════════╗
-        ║           REPLACE THIS WITH YOUR REAL ADMOB APP ID          ║
-        ║                                                              ║
-        ║  Steps:                                                      ║
-        ║  1. Go to https://admob.google.com                          ║
-        ║  2. Apps → Add App → Android                                ║
-        ║  3. Copy the App ID (ca-app-pub-XXXXXXX~XXXXXXXXXX)         ║
-        ║  4. Paste it below in the android:value field               ║
-        ╚══════════════════════════════════════════════════════════════╝
-        -->
+        <!-- Google AdMob App ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"/>
-        <!--                ↑↑↑  REPLACE THIS VALUE  ↑↑↑            -->
+            android:value="ca-app-pub-1377346158677931~9202705192"/>
 
-        <!-- Delay measurement until consent obtained (GDPR) -->
+        <!-- Delay measurement until consent is obtained -->
         <meta-data
             android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"
             android:value="true"/>
@@ -43,15 +32,22 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
+
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme"/>
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
         </activity>
-        <meta-data android:name="flutterEmbedding" android:value="2"/>
+
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2"/>
+
     </application>
 
     <queries>
@@ -59,6 +55,7 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
         </intent>
+
         <package android:name="com.google.android.gms"/>
     </queries>
 
