@@ -10,39 +10,40 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # ── State Management ──────────────────────────────────────
+  # State Management
   flutter_riverpod: ^2.6.1
-  riverpod_annotation: ^2.3.5
+  riverpod_annotation: ^2.6.1
 
-  # ── Navigation ────────────────────────────────────────────
+  # Navigation
   go_router: ^14.6.2
 
-  # ── Code Generation ───────────────────────────────────────
+  # Serialization
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
 
-  # ── Local Storage ─────────────────────────────────────────
+  # Storage
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   shared_preferences: ^2.3.2
 
-  # ── Ads — AdMob ───────────────────────────────────────────
+  # Ads
   google_mobile_ads: ^5.1.0
 
-  # ── Sound ─────────────────────────────────────────────────
+  # Audio
   audioplayers: ^6.1.0
 
-  # ── UI / Animations ───────────────────────────────────────
+  # UI
   flutter_animate: ^4.5.0
   confetti: ^0.7.0
   google_fonts: ^6.2.1
   percent_indicator: ^4.2.3
 
-  # ── Utils ─────────────────────────────────────────────────
+  # Utils
   dartz: ^0.10.1
   logger: ^2.4.0
   package_info_plus: ^8.0.2
   in_app_review: ^2.0.9
+
 
 dev_dependencies:
   flutter_test:
@@ -50,16 +51,49 @@ dev_dependencies:
 
   flutter_lints: ^5.0.0
 
+  # Code generation
   build_runner: ^2.4.15
-
-  freezed: ^3.0.0
+  freezed: ^2.5.8
   json_serializable: ^6.9.0
 
-  riverpod_lint: ^2.6.5
-  riverpod_generator: ^2.6.5
+  # Riverpod generator
+  riverpod_generator: ^2.6.1
 
-  hive_generator: ^2.0.1+1
+  # Hive generator
+  hive_generator: ^2.0.1
 
+  # Testing
   mocktail: ^1.0.4
 
+  # Icons
   flutter_launcher_icons: ^0.14.3
+
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#1565C0"
+  adaptive_icon_foreground: "assets/images/app_icon_fg.png"
+  min_sdk_android: 21
+
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/sounds/
+    - assets/images/
+    - assets/fonts/
+
+  fonts:
+    - family: Cairo
+      fonts:
+        - asset: assets/fonts/Cairo-Regular.ttf
+        - asset: assets/fonts/Cairo-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Cairo-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Cairo-ExtraBold.ttf
+          weight: 800
