@@ -41,6 +41,7 @@ Thumbs.db
 .env
 .env.*
 android/key.properties
+keystore.txt
 
 # Coverage
 coverage/
