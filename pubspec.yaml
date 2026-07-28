@@ -53,8 +53,8 @@ dev_dependencies:
 
   # Code generation
   build_runner: ^2.4.15
-  freezed: ^2.5.8
-  json_serializable: ^6.9.0
+  freezed: ^2.4.8
+  json_serializable: ^6.8.0
 
   # Riverpod generator
   riverpod_generator: ^2.6.1
@@ -71,7 +71,7 @@ dev_dependencies:
 
 flutter_launcher_icons:
   android: true
-  ios: true
+  ios: false
   image_path: "assets/images/app_icon.png"
   adaptive_icon_background: "#1565C0"
   adaptive_icon_foreground: "assets/images/app_icon_fg.png"
