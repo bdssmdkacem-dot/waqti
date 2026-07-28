@@ -6,18 +6,24 @@ plugins {
 
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
+
 if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader -> localProperties.load(reader) }
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
 }
 
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('key.properties')
+
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
 android {
+
     namespace "com.daryne.waqti"
+
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -25,46 +31,80 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = '17' }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
 
     defaultConfig {
+
         applicationId "com.daryne.waqti"
+
         minSdkVersion 21
         targetSdkVersion flutter.targetSdkVersion
-        versionCode    flutter.versionCode
-        versionName    flutter.versionName
+
+        versionCode flutter.versionCode
+        versionName flutter.versionName
+
         multiDexEnabled true
     }
 
+
     signingConfigs {
+
         release {
+
             if (keystorePropertiesFile.exists()) {
-                keyAlias      keystoreProperties['keyAlias']
-                keyPassword   keystoreProperties['keyPassword']
-                storeFile     file(keystoreProperties['storeFile'])
+
+                keyAlias keystoreProperties['keyAlias']
+
+                keyPassword keystoreProperties['keyPassword']
+
+                storeFile file(keystoreProperties['storeFile'])
+
                 storePassword keystoreProperties['storePassword']
             }
         }
     }
 
+
     buildTypes {
+
+
         debug {
+
+            // Optional
+            // remove if you want same package id while testing
             applicationIdSuffix ".debug"
+
+            minifyEnabled false
         }
+
+
         release {
-            signingConfig keystorePropertiesFile.exists()
-                ? signingConfigs.release
-                : signingConfigs.debug
-            minifyEnabled   true
+
+            signingConfig signingConfigs.release
+
+            minifyEnabled true
+
             shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
-                         'proguard-rules.pro'
+
+            proguardFiles getDefaultProguardFile(
+                'proguard-android-optimize.txt'
+            ),
+            'proguard-rules.pro'
         }
     }
 }
 
-flutter { source '../..' }
+
+flutter {
+    source '../..'
+}
+
 
 dependencies {
+
     implementation 'androidx.multidex:multidex:2.0.1'
 }
