@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 env:
@@ -37,10 +40,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
 
       - name: Setup keystore
+        if: github.event_name != 'pull_request'
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
 
@@ -51,19 +58,16 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
 
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Run tests
-        run: flutter test
-
       - name: Build APK
+        if: github.event_name != 'pull_request'
         run: flutter build apk --release
 
       - name: Build AAB
+        if: github.event_name != 'pull_request'
         run: flutter build appbundle --release
 
       - name: Upload APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: waqti-release-apk
@@ -71,6 +75,7 @@ jobs:
           retention-days: 30
 
       - name: Upload AAB
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: waqti-release-aab
