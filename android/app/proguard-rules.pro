@@ -1,7 +1,0 @@
--keep class io.flutter.** { *; }
--dontwarn io.flutter.**
--keep class com.daryne.waqti.** { *; }
--keep class com.google.android.gms.ads.** { *; }
--keep class xyz.luan.audioplayers.** { *; }
--keepclassmembers class xyz.luan.audioplayers.** { *; }
--keepattributes SourceFile,LineNumberTable
