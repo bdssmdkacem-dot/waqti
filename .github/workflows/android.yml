@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+<<<<<<< HEAD
+=======
+  pull_request:
+    branches:
+      - main
+>>>>>>> 87621e24c693937af18a60980a093fb014d131fb
   workflow_dispatch:
 
 env:
@@ -37,10 +43,21 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+<<<<<<< HEAD
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Setup keystore
+=======
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Setup keystore
+        if: github.event_name != 'pull_request'
+>>>>>>> 87621e24c693937af18a60980a093fb014d131fb
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
 
@@ -51,6 +68,7 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
 
+<<<<<<< HEAD
       - name: Analyze
         run: flutter analyze
 
@@ -64,6 +82,18 @@ jobs:
         run: flutter build appbundle --release
 
       - name: Upload APK
+=======
+      - name: Build APK
+        if: github.event_name != 'pull_request'
+        run: flutter build apk --release
+
+      - name: Build AAB
+        if: github.event_name != 'pull_request'
+        run: flutter build appbundle --release
+
+      - name: Upload APK
+        if: github.event_name != 'pull_request'
+>>>>>>> 87621e24c693937af18a60980a093fb014d131fb
         uses: actions/upload-artifact@v4
         with:
           name: waqti-release-apk
@@ -71,8 +101,16 @@ jobs:
           retention-days: 30
 
       - name: Upload AAB
+<<<<<<< HEAD
+=======
+        if: github.event_name != 'pull_request'
+>>>>>>> 87621e24c693937af18a60980a093fb014d131fb
         uses: actions/upload-artifact@v4
         with:
           name: waqti-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
+<<<<<<< HEAD
           retention-days: 30
+=======
+          retention-days: 30
+>>>>>>> 87621e24c693937af18a60980a093fb014d131fb
