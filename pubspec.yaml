@@ -1,0 +1,56 @@
+name: waqti
+description: وقتي — تعلّم قراءة الساعة للأطفال
+publish_to: 'none'
+version: 3.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management — no code generation needed
+  flutter_riverpod: ^2.5.1
+
+  # Navigation
+  go_router: ^14.2.7
+
+  # Local Storage
+  shared_preferences: ^2.3.2
+
+  # Ads
+  google_mobile_ads: ^5.1.0
+
+  # Sound
+  audioplayers: ^6.1.0
+
+  # UI / Animations
+  flutter_animate: ^4.5.0
+  confetti: ^0.7.0
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/sounds/
+    - assets/images/
+    # fonts/ intentionally omitted — Cairo loaded via google_fonts package
+    # If you add Cairo .ttf files to assets/fonts/, uncomment the fonts block below
+
+  # fonts:
+  #   - family: Cairo
+  #     fonts:
+  #       - asset: assets/fonts/Cairo-Regular.ttf
+  #       - asset: assets/fonts/Cairo-SemiBold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/Cairo-Bold.ttf
+  #         weight: 700
+  #       - asset: assets/fonts/Cairo-ExtraBold.ttf
+  #         weight: 800
