@@ -1,20 +1,14 @@
-name: "وقتي CI/CD"
+name: وقتي CI/CD
 
 on:
   push:
-    branches:
-      - main
-      - develop
-
+    branches: [main, develop]
   pull_request:
-    branches:
-      - main
-
+    branches: [main]
   workflow_dispatch:
     inputs:
       deploy:
         description: "Deploy to Play Store?"
-        required: false
         type: boolean
         default: false
 
@@ -99,7 +93,7 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Setup release keystore
+      - name: Setup keystore
         if: github.ref == 'refs/heads/main'
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/waqti-release.jks
@@ -111,7 +105,8 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
 
-      - run: flutter build appbundle --release
+      - name: Build AAB
+        run: flutter build appbundle --release
 
       - uses: actions/upload-artifact@v4
         with:
@@ -135,9 +130,7 @@ jobs:
 
       - run: flutter pub get
 
-      - run: |
-          cd ios
-          pod install
+      - run: cd ios && pod install
 
       - run: flutter build ios --release --no-codesign
 
