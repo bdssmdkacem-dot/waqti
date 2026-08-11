@@ -1,10 +1,7 @@
-rootProject.buildDir = "../build"
+org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G
 
-subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
-    project.evaluationDependsOn(":app")
-}
+android.useAndroidX=true
+android.enableJetifier=true
 
-tasks.register("clean", Delete) {
-    delete rootProject.buildDir
-}
+org.gradle.parallel=true
+org.gradle.c
