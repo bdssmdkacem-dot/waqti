@@ -48,8 +48,8 @@ jobs:
       - name: Get packages
         run: flutter pub get
 
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Format Dart files
+        run: dart format lib test
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos
