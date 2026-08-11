@@ -11,8 +11,8 @@ def localProperties = new Properties()
 def localPropertiesFile = rootProject.file("local.properties")
 
 if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader("UTF-8") { reader ->
-        localProperties.load(reader)
+    localPropertiesFile.withReader("UTF-8") {
+        localProperties.load(it)
     }
 }
 
@@ -24,26 +24,31 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
+
     namespace = "com.daryne.waqti"
 
     compileSdk = flutter.compileSdkVersion
+
     ndkVersion = flutter.ndkVersion
 
     defaultConfig {
+
         applicationId = "com.daryne.waqti"
 
         minSdk = 21
+
         targetSdk = flutter.targetSdkVersion
 
         versionCode = flutter.versionCode
+
         versionName = flutter.versionName
 
-        multiDexEnabled = true
+        multiDexEnabled true
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
@@ -51,39 +56,53 @@ android {
     }
 
     signingConfigs {
+
         release {
+
             if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties["keyAlias"]
-                keyPassword = keystoreProperties["keyPassword"]
-                storeFile = file(keystoreProperties["storeFile"])
-                storePassword = keystoreProperties["storePassword"]
+
+                keyAlias keystoreProperties["keyAlias"]
+
+                keyPassword keystoreProperties["keyPassword"]
+
+                storeFile file(keystoreProperties["storeFile"])
+
+                storePassword keystoreProperties["storePassword"]
+
             }
+
         }
+
     }
 
     buildTypes {
+
         debug {
-            applicationIdSuffix = ".debug"
-            minifyEnabled = false
-            shrinkResources = false
+
+            applicationIdSuffix ".debug"
+
         }
 
         release {
-            signingConfig = signingConfigs.release
 
-            minifyEnabled = true
-            shrinkResources = true
+            signingConfig signingConfigs.release
 
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            minifyEnabled true
+
+            shrinkResources true
+
+            proguardFiles getDefaultProguardFile(
+                    "proguard-android-optimize.txt"),
+                    "proguard-rules.pro"
+
         }
+
     }
+
 }
 
 flutter {
-    source = "../.."
+    source "../.."
 }
 
 dependencies {
