@@ -1,7 +1,18 @@
-org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
 
-android.useAndroidX=true
-android.enableJetifier=true
+rootProject.buildDir = "../build"
 
-org.gradle.parallel=true
-org.gradle.c
+subprojects {
+
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
