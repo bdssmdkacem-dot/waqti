@@ -5,10 +5,11 @@ on:
     branches:
       - main
 
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
-env:
-  FLUTTER_VERSION: stable
+  workflow_dispatch:
 
 jobs:
   build-android:
@@ -24,20 +25,30 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: "3.35.2"
           cache: true
 
-      - name: Flutter Version
-        run: flutter --version
+      - name: Flutter Doctor
+        run: flutter doctor -v
 
-      - name: Install dependencies
+      - name: Clean
+        run: flutter clean
+
+      - name: Get Packages
         run: flutter pub get
 
-      - name: Setup keystore
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run Tests
+        run: flutter test
+
+      - name: Setup Keystore
         if: github.ref == 'refs/heads/main'
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
@@ -49,16 +60,10 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
 
-      - name: Analyze
-        run: flutter analyze --no-fatal-infos
-
-      - name: Run tests
-        run: flutter test
-
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Build AAB
+      - name: Build AppBundle
         run: flutter build appbundle --release
 
       - name: Upload APK
@@ -66,11 +71,9 @@ jobs:
         with:
           name: waqti-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: waqti-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
-          retention-days: 30
