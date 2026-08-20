@@ -4,57 +4,65 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../../core/constants/app_constants.dart';
 
-// ── Manual provider ───────────────────────────────────────────
 final adServiceProvider = Provider<AdService>(
   (ref) => AdService.instance,
 );
 
-// ── Service ───────────────────────────────────────────────────
 class AdService extends ChangeNotifier {
   AdService._();
   static final AdService instance = AdService._();
 
-  BannerAd?       _homeBanner;
-  BannerAd?       _lessonBanner;
+  BannerAd? _homeBanner;
+  BannerAd? _lessonBanner;
   InterstitialAd? _interstitial;
-  RewardedAd?     _rewarded;
+  RewardedAd? _rewarded;
 
-  bool _homeBannerReady   = false;
+  bool _homeBannerReady = false;
   bool _lessonBannerReady = false;
   bool _interstitialReady = false;
-  int  _lessonsSinceAd   = 0;
+  int _lessonsSinceAd = 0;
 
-  bool      get homeBannerReady   => _homeBannerReady;
-  bool      get lessonBannerReady => _lessonBannerReady;
-  BannerAd? get homeBanner        => _homeBanner;
-  BannerAd? get lessonBanner      => _lessonBanner;
+  bool get homeBannerReady => _homeBannerReady;
+  bool get lessonBannerReady => _lessonBannerReady;
+  BannerAd? get homeBanner => _homeBanner;
+  BannerAd? get lessonBanner => _lessonBanner;
 
-  // ── IDs ─────────────────────────────────────────────────────
-  static String get _bannerId =>
-      kDebugMode ? AdMobIds.testBanner
-      : (Platform.isIOS ? AdMobIds.iosBannerHome : AdMobIds.androidBannerHome);
+  // Until real ad-unit IDs are configured, always use Google's official
+  // test units. Placeholder IDs containing X must never reach AdMob.
+  static String _safeAndroidId(String id, String testId) =>
+      id.contains('X') ? testId : id;
 
-  static String get _lessonBannerId =>
-      kDebugMode ? AdMobIds.testBanner
-      : (Platform.isIOS ? AdMobIds.iosBannerLesson : AdMobIds.androidBannerLesson);
+  static String get _bannerId => kDebugMode
+      ? AdMobIds.testBanner
+      : (Platform.isIOS
+          ? AdMobIds.iosBannerHome
+          : _safeAndroidId(AdMobIds.androidBannerHome, AdMobIds.testBanner));
 
-  static String get _interId =>
-      kDebugMode ? AdMobIds.testInterstitial
-      : (Platform.isIOS ? AdMobIds.iosInterstitial : AdMobIds.androidInterstitial);
+  static String get _lessonBannerId => kDebugMode
+      ? AdMobIds.testBanner
+      : (Platform.isIOS
+          ? AdMobIds.iosBannerLesson
+          : _safeAndroidId(AdMobIds.androidBannerLesson, AdMobIds.testBanner));
 
-  static String get _rewardedId =>
-      kDebugMode ? AdMobIds.testRewarded
-      : (Platform.isIOS ? AdMobIds.iosRewarded : AdMobIds.androidRewarded);
+  static String get _interId => kDebugMode
+      ? AdMobIds.testInterstitial
+      : (Platform.isIOS
+          ? AdMobIds.iosInterstitial
+          : _safeAndroidId(AdMobIds.androidInterstitial, AdMobIds.testInterstitial));
 
-  // ── Initialization ───────────────────────────────────────────
+  static String get _rewardedId => kDebugMode
+      ? AdMobIds.testRewarded
+      : (Platform.isIOS
+          ? AdMobIds.iosRewarded
+          : _safeAndroidId(AdMobIds.androidRewarded, AdMobIds.testRewarded));
+
   Future<void> initialize() async {
     await MobileAds.instance.initialize();
-    // Required for children's app
     await MobileAds.instance.updateRequestConfiguration(
       RequestConfiguration(
         tagForChildDirectedTreatment: TagForChildDirectedTreatment.yes,
-        tagForUnderAgeOfConsent:      TagForUnderAgeOfConsent.yes,
-        maxAdContentRating:           MaxAdContentRating.g,
+        tagForUnderAgeOfConsent: TagForUnderAgeOfConsent.yes,
+        maxAdContentRating: MaxAdContentRating.g,
       ),
     );
     loadHomeBanner();
@@ -63,12 +71,12 @@ class AdService extends ChangeNotifier {
     loadRewarded();
   }
 
-  // ── Banner ads ───────────────────────────────────────────────
   void loadHomeBanner() {
+    _homeBanner?.dispose();
     _homeBanner = BannerAd(
       adUnitId: _bannerId,
-      size:     AdSize.banner,
-      request:  const AdRequest(),
+      size: AdSize.banner,
+      request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (_) {
           _homeBannerReady = true;
@@ -76,6 +84,7 @@ class AdService extends ChangeNotifier {
         },
         onAdFailedToLoad: (ad, err) {
           ad.dispose();
+          _homeBanner = null;
           _homeBannerReady = false;
           if (kDebugMode) debugPrint('HomeBanner failed: $err');
         },
@@ -84,10 +93,11 @@ class AdService extends ChangeNotifier {
   }
 
   void loadLessonBanner() {
+    _lessonBanner?.dispose();
     _lessonBanner = BannerAd(
       adUnitId: _lessonBannerId,
-      size:     AdSize.banner,
-      request:  const AdRequest(),
+      size: AdSize.banner,
+      request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (_) {
           _lessonBannerReady = true;
@@ -95,20 +105,20 @@ class AdService extends ChangeNotifier {
         },
         onAdFailedToLoad: (ad, err) {
           ad.dispose();
+          _lessonBanner = null;
           _lessonBannerReady = false;
         },
       ),
     )..load();
   }
 
-  // ── Interstitial — every 3 lessons ──────────────────────────
   void loadInterstitial() {
     InterstitialAd.load(
       adUnitId: _interId,
-      request:  const AdRequest(),
+      request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
-          _interstitial     = ad;
+          _interstitial = ad;
           _interstitialReady = true;
         },
         onAdFailedToLoad: (err) {
@@ -119,15 +129,12 @@ class AdService extends ChangeNotifier {
     );
   }
 
-  // ── Rewarded ─────────────────────────────────────────────────
   void loadRewarded() {
     RewardedAd.load(
       adUnitId: _rewardedId,
-      request:  const AdRequest(),
+      request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _rewarded     = ad;
-        },
+        onAdLoaded: (ad) => _rewarded = ad,
         onAdFailedToLoad: (err) {
           if (kDebugMode) debugPrint('Rewarded failed: $err');
         },
@@ -142,11 +149,14 @@ class AdService extends ChangeNotifier {
       _interstitial!.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (ad) {
           ad.dispose();
+          _interstitial = null;
           _interstitialReady = false;
           loadInterstitial();
         },
         onAdFailedToShowFullScreenContent: (ad, _) {
           ad.dispose();
+          _interstitial = null;
+          _interstitialReady = false;
           loadInterstitial();
         },
       );
@@ -157,8 +167,10 @@ class AdService extends ChangeNotifier {
   Future<bool> showRewarded({
     required void Function(int amount) onRewarded,
   }) async {
-    if (_rewarded == null) return false;
-    _rewarded!.fullScreenContentCallback = FullScreenContentCallback(
+    final ad = _rewarded;
+    if (ad == null) return false;
+    _rewarded = null;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
         loadRewarded();
@@ -168,7 +180,7 @@ class AdService extends ChangeNotifier {
         loadRewarded();
       },
     );
-    await _rewarded!.show(
+    await ad.show(
       onUserEarnedReward: (_, reward) => onRewarded(reward.amount.toInt()),
     );
     return true;
