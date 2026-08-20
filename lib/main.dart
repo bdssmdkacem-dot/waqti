@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,18 +18,30 @@ Future<void> main() async {
   ]);
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor:          Colors.transparent,
+    statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
-    statusBarBrightness:     Brightness.dark,
+    statusBarBrightness: Brightness.dark,
   ));
 
-  // Sound — preload all 10 audio files
-  await SoundService.instance.initialize();
-
-  // AdMob — child-directed, G-rated
-  await AdService.instance.initialize();
-
+  // Do not block the first frame on audio/AdMob initialization.
+  // A failed optional service must never prevent Waqti from opening.
   runApp(const ProviderScope(child: WaqtiApp()));
+
+  unawaited(_initializeServices());
+}
+
+Future<void> _initializeServices() async {
+  try {
+    await SoundService.instance.initialize();
+  } catch (e) {
+    debugPrint('SoundService initialization failed: $e');
+  }
+
+  try {
+    await AdService.instance.initialize();
+  } catch (e) {
+    debugPrint('AdService initialization failed: $e');
+  }
 }
 
 class WaqtiApp extends ConsumerWidget {
@@ -37,12 +51,12 @@ class WaqtiApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
-      title:                    'وقتي',
+      title: 'وقتي',
       debugShowCheckedModeBanner: false,
-      theme:                    WaqtiTheme.theme,
-      themeMode:                ThemeMode.light,
-      routerConfig:             router,
-      // Clamp text scale — prevents layout overflow on accessibility sizes
+      theme: WaqtiTheme.theme,
+      themeMode: ThemeMode.light,
+      routerConfig: router,
+      // Clamp text scale — prevents layout overflow on accessibility sizes.
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         return MediaQuery(
@@ -51,7 +65,7 @@ class WaqtiApp extends ConsumerWidget {
               mq.textScaler.scale(1).clamp(.85, 1.25),
             ),
           ),
-          child: child!,
+          child: child ?? const SizedBox.shrink(),
         );
       },
     );
