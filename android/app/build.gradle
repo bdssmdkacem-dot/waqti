@@ -7,15 +7,6 @@ plugins {
 import java.util.Properties
 import java.io.FileInputStream
 
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file("local.properties")
-
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader("UTF-8") {
-        localProperties.load(it)
-    }
-}
-
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file("key.properties")
 
@@ -24,26 +15,16 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-
     namespace = "com.daryne.waqti"
-
     compileSdk = flutter.compileSdkVersion
-
     ndkVersion = flutter.ndkVersion
 
     defaultConfig {
-
         applicationId = "com.daryne.waqti"
-
         minSdk = 21
-
         targetSdk = flutter.targetSdkVersion
-
         versionCode = flutter.versionCode
-
         versionName = flutter.versionName
-
-        multiDexEnabled true
     }
 
     compileOptions {
@@ -56,49 +37,31 @@ android {
     }
 
     signingConfigs {
-
         release {
-
             if (keystorePropertiesFile.exists()) {
-
                 keyAlias keystoreProperties["keyAlias"]
-
                 keyPassword keystoreProperties["keyPassword"]
-
                 storeFile file(keystoreProperties["storeFile"])
-
                 storePassword keystoreProperties["storePassword"]
-
             }
-
         }
-
     }
 
     buildTypes {
-
         debug {
-
             applicationIdSuffix ".debug"
-
         }
 
         release {
-
             signingConfig signingConfigs.release
 
-            minifyEnabled true
-
-            shrinkResources true
-
-            proguardFiles getDefaultProguardFile(
-                    "proguard-android-optimize.txt"),
-                    "proguard-rules.pro"
-
+            // Keep the first production builds unshrunk until the complete
+            // runtime/device validation is finished. This avoids R8 removing
+            // plugin classes that are loaded dynamically by Flutter plugins.
+            minifyEnabled false
+            shrinkResources false
         }
-
     }
-
 }
 
 flutter {
