@@ -4,16 +4,14 @@ on:
   push:
     branches:
       - main
-
   pull_request:
     branches:
       - main
-
   workflow_dispatch:
 
 jobs:
   build-android:
-    name: Build Android APK + AAB
+    name: Build + Install + Launch Android
     runs-on: ubuntu-latest
 
     steps:
@@ -51,6 +49,11 @@ jobs:
       - name: Setup Keystore
         if: github.ref == 'refs/heads/main'
         run: |
+          test -n "${{ secrets.KEYSTORE_BASE64 }}" || (echo "KEYSTORE_BASE64 is missing" && exit 1)
+          test -n "${{ secrets.KEYSTORE_PASSWORD }}" || (echo "KEYSTORE_PASSWORD is missing" && exit 1)
+          test -n "${{ secrets.KEY_ALIAS }}" || (echo "KEY_ALIAS is missing" && exit 1)
+          test -n "${{ secrets.KEY_PASSWORD }}" || (echo "KEY_PASSWORD is missing" && exit 1)
+
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
 
           cat > android/key.properties <<EOF
@@ -61,10 +64,38 @@ jobs:
           EOF
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-shrink
+
+      - name: Validate APK structure and signature
+        run: |
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          test -s "$APK"
+          BUILD_TOOLS=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK"
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E "package: name='com.daryne.waqti'|launchable-activity"
+
+      - name: Install and launch APK on Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: |
+            adb install -r build/app/outputs/flutter-apk/app-release.apk
+            adb shell pm path com.daryne.waqti
+            adb shell monkey -p com.daryne.waqti 1
+            sleep 8
+            adb shell dumpsys activity activities | grep -E "com.daryne.waqti|mResumedActivity" || true
+            adb logcat -d -t 300 | grep -E "FATAL EXCEPTION|AndroidRuntime|com.daryne.waqti" || true
 
       - name: Build AppBundle
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --no-shrink
+
+      - name: Validate AAB exists
+        run: test -s build/app/outputs/bundle/release/app-release.aab
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
