@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../../core/constants/app_constants.dart';
 
-final adServiceProvider = ChangeNotifierProvider<AdService>((ref) => AdService.instance);
+final adServiceProvider = ChangeNotifierProvider<AdService>(
+  (ref) => AdService.instance,
+);
 
 class AdService extends ChangeNotifier {
   AdService._();
@@ -18,7 +20,8 @@ class AdService extends ChangeNotifier {
   RewardedAd? _rewardedHint;
   Timer? _retryTimer;
   bool _initialized = false;
-  String? _lastError;
+
+  final Map<String, String> _errors = {};
 
   bool _homeBannerReady = false;
   bool _lessonBannerReady = false;
@@ -26,7 +29,9 @@ class AdService extends ChangeNotifier {
   bool _rewardedReady = false;
   bool _rewardedHintReady = false;
 
-  String? get lastError => _lastError;
+  String? get lastError => _errors.isEmpty ? null : _errors.values.last;
+  String? errorFor(String type) => _errors[type];
+
   bool get homeBannerReady => _homeBannerReady;
   bool get lessonBannerReady => _lessonBannerReady;
   bool get interstitialReady => _interstitialReady;
@@ -38,28 +43,37 @@ class AdService extends ChangeNotifier {
   static String get _bannerId => kDebugMode
       ? AdMobIds.testBanner
       : (Platform.isIOS ? AdMobIds.iosBannerHome : AdMobIds.androidBannerHome);
+
   static String get _lessonBannerId => kDebugMode
       ? AdMobIds.testBanner
-      : (Platform.isIOS ? AdMobIds.iosBannerLesson : AdMobIds.androidBannerLesson);
+      : (Platform.isIOS
+          ? AdMobIds.iosBannerLesson
+          : AdMobIds.androidBannerLesson);
+
   static String get _interId => kDebugMode
       ? AdMobIds.testInterstitial
-      : (Platform.isIOS ? AdMobIds.iosInterstitial : AdMobIds.androidInterstitial);
+      : (Platform.isIOS
+          ? AdMobIds.iosInterstitial
+          : AdMobIds.androidInterstitial);
+
   static String get _rewardedId => kDebugMode
       ? AdMobIds.testRewarded
       : (Platform.isIOS ? AdMobIds.iosRewarded : AdMobIds.androidRewarded);
+
   static String get _rewardedHintId => kDebugMode
       ? AdMobIds.testRewarded
-      : (Platform.isIOS ? AdMobIds.androidRewardedHint : AdMobIds.iosRewarded);
+      : (Platform.isIOS
+          ? AdMobIds.iosRewarded
+          : AdMobIds.androidRewardedHint);
 
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // Configure the SDK before initialization so COPPA/under-age settings
-    // are applied to every request from the first load.
+    // Waqti is configured as a mixed-audience app. Do not force every user
+    // to be treated as a child or under the age of consent. Those flags must
+    // only be set when the actual user's applicable status is known.
     await MobileAds.instance.updateRequestConfiguration(
       RequestConfiguration(
-        tagForChildDirectedTreatment: TagForChildDirectedTreatment.yes,
-        tagForUnderAgeOfConsent: TagForUnderAgeOfConsent.yes,
         maxAdContentRating: MaxAdContentRating.g,
       ),
     );
@@ -67,6 +81,13 @@ class AdService extends ChangeNotifier {
     final status = await MobileAds.instance.initialize();
     _initialized = true;
     debugPrint('Waqti AdMob initialized: ${status.adapterStatuses}');
+    for (final entry in status.adapterStatuses.entries) {
+      debugPrint(
+        'Waqti AdMob adapter ${entry.key}: '
+        'state=${entry.value.state}, description=${entry.value.description}, '
+        'latency=${entry.value.latency}',
+      );
+    }
     _loadAll();
   }
 
@@ -79,10 +100,19 @@ class AdService extends ChangeNotifier {
   }
 
   void _recordError(String type, LoadAdError error) {
-    _lastError = '$type: code=${error.code}, domain=${error.domain}, message=${error.message}';
-    debugPrint('Waqti AdMob $_lastError');
+    final message =
+        '$type: code=${error.code}, domain=${error.domain}, '
+        'message=${error.message}, responseInfo=${error.responseInfo}';
+    _errors[type] = message;
+    debugPrint('Waqti AdMob $message');
     notifyListeners();
     _scheduleRetry();
+  }
+
+  void _recordLoaded(String type, String adUnitId) {
+    _errors.remove(type);
+    debugPrint('Waqti AdMob $type loaded: $adUnitId');
+    notifyListeners();
   }
 
   void _scheduleRetry() {
@@ -103,9 +133,7 @@ class AdService extends ChangeNotifier {
       listener: BannerAdListener(
         onAdLoaded: (_) {
           _homeBannerReady = true;
-          _lastError = null;
-          debugPrint('Waqti Home Banner loaded: $_bannerId');
-          notifyListeners();
+          _recordLoaded('Home Banner', _bannerId);
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
@@ -127,9 +155,7 @@ class AdService extends ChangeNotifier {
       listener: BannerAdListener(
         onAdLoaded: (_) {
           _lessonBannerReady = true;
-          _lastError = null;
-          debugPrint('Waqti Lesson Banner loaded: $_lessonBannerId');
-          notifyListeners();
+          _recordLoaded('Lesson Banner', _lessonBannerId);
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
@@ -152,9 +178,7 @@ class AdService extends ChangeNotifier {
         onAdLoaded: (ad) {
           _interstitial = ad;
           _interstitialReady = true;
-          _lastError = null;
-          debugPrint('Waqti Interstitial loaded: $_interId');
-          notifyListeners();
+          _recordLoaded('Interstitial', _interId);
         },
         onAdFailedToLoad: (error) {
           _interstitialReady = false;
@@ -175,9 +199,7 @@ class AdService extends ChangeNotifier {
         onAdLoaded: (ad) {
           _rewarded = ad;
           _rewardedReady = true;
-          _lastError = null;
-          debugPrint('Waqti Rewarded loaded: $_rewardedId');
-          notifyListeners();
+          _recordLoaded('Rewarded', _rewardedId);
         },
         onAdFailedToLoad: (error) {
           _rewardedReady = false;
@@ -198,9 +220,7 @@ class AdService extends ChangeNotifier {
         onAdLoaded: (ad) {
           _rewardedHint = ad;
           _rewardedHintReady = true;
-          _lastError = null;
-          debugPrint('Waqti Rewarded Hint loaded: $_rewardedHintId');
-          notifyListeners();
+          _recordLoaded('Rewarded Hint', _rewardedHintId);
         },
         onAdFailedToLoad: (error) {
           _rewardedHintReady = false;
@@ -216,6 +236,7 @@ class AdService extends ChangeNotifier {
       loadInterstitial();
       return;
     }
+
     _interstitial = null;
     _interstitialReady = false;
     ad.fullScreenContentCallback = FullScreenContentCallback(
@@ -232,12 +253,15 @@ class AdService extends ChangeNotifier {
     await ad.show();
   }
 
-  Future<bool> showRewarded({required void Function(int amount) onRewarded}) async {
+  Future<bool> showRewarded({
+    required void Function(int amount) onRewarded,
+  }) async {
     final ad = _rewarded;
     if (ad == null || !_rewardedReady) {
       loadRewarded();
       return false;
     }
+
     _rewarded = null;
     _rewardedReady = false;
     ad.fullScreenContentCallback = FullScreenContentCallback(
@@ -251,18 +275,23 @@ class AdService extends ChangeNotifier {
         loadRewarded();
       },
     );
-    await ad.show(onUserEarnedReward: (_, reward) {
-      onRewarded(reward.amount.toInt());
-    });
+    await ad.show(
+      onUserEarnedReward: (_, reward) {
+        onRewarded(reward.amount.toInt());
+      },
+    );
     return true;
   }
 
-  Future<bool> showRewardedHint({required void Function(int amount) onRewarded}) async {
+  Future<bool> showRewardedHint({
+    required void Function(int amount) onRewarded,
+  }) async {
     final ad = _rewardedHint;
     if (ad == null || !_rewardedHintReady) {
       loadRewardedHint();
       return false;
     }
+
     _rewardedHint = null;
     _rewardedHintReady = false;
     ad.fullScreenContentCallback = FullScreenContentCallback(
@@ -276,9 +305,11 @@ class AdService extends ChangeNotifier {
         loadRewardedHint();
       },
     );
-    await ad.show(onUserEarnedReward: (_, reward) {
-      onRewarded(reward.amount.toInt());
-    });
+    await ad.show(
+      onUserEarnedReward: (_, reward) {
+        onRewarded(reward.amount.toInt());
+      },
+    );
     return true;
   }
 
