@@ -32,7 +32,7 @@ class SettingsPage extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SectionHeader(Icons.volume_up_rounded, 'الصوت'),
+                  const _SectionHeader(Icons.volume_up_rounded, 'الصوت'),
                   const SizedBox(height: WaqtiSpacing.md),
                   ListenableBuilder(
                     listenable: sound,
@@ -77,7 +77,11 @@ class SettingsPage extends ConsumerWidget {
                           const Divider(height: 24),
                           Row(
                             children: [
-                              const Icon(Icons.volume_down, color: WaqtiColors.textLight, size: 18),
+                              const Icon(
+                                Icons.volume_down,
+                                color: WaqtiColors.textLight,
+                                size: 18,
+                              ),
                               Expanded(
                                 child: Slider(
                                   value: sound.volume,
@@ -85,19 +89,26 @@ class SettingsPage extends ConsumerWidget {
                                   max: 1,
                                   divisions: 10,
                                   activeColor: WaqtiColors.primary,
-                                  inactiveColor: WaqtiColors.primary.withOpacity(.2),
+                                  inactiveColor:
+                                      WaqtiColors.primary.withOpacity(.2),
                                   onChanged: sound.setVolume,
                                   onChangeEnd: (_) => sound.click(),
                                 ),
                               ),
-                              const Icon(Icons.volume_up, color: WaqtiColors.textLight, size: 18),
+                              const Icon(
+                                Icons.volume_up,
+                                color: WaqtiColors.textLight,
+                                size: 18,
+                              ),
                             ],
                           ),
                           Text(
                             'مستوى الصوت: ${(sound.volume * 100).round()}%',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontFamily: 'Cairo', fontSize: 12, color: WaqtiColors.textLight,
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              color: WaqtiColors.textLight,
                             ),
                           ),
                         ],
@@ -107,29 +118,54 @@ class SettingsPage extends ConsumerWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: WaqtiSpacing.md),
-
-            // AdMob diagnostics: this is intentionally visible in production
-            // so we can distinguish SDK/loading problems from AdMob no-fill or
-            // account/app-review limitations without needing logcat.
             _Card(
               child: ListenableBuilder(
                 listenable: ads,
                 builder: (_, __) => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SectionHeader(Icons.ads_click_rounded, 'تشخيص AdMob'),
+                    const _SectionHeader(
+                      Icons.ads_click_rounded,
+                      'تشخيص AdMob',
+                    ),
                     const SizedBox(height: 10),
-                    _InfoRow('SDK', ads.initialized ? 'تمت التهيئة' : 'لم تتم التهيئة'),
+                    _InfoRow(
+                      'SDK',
+                      ads.initialized ? 'تمت التهيئة' : 'لم تتم التهيئة',
+                    ),
                     _InfoRow('App ID', AdMobIds.androidAppId),
                     const SizedBox(height: 8),
-                    _AdStatusRow('Banner Home', ads.homeBannerReady, ads.errorFor('Home Banner')),
-                    _AdStatusRow('Banner Lesson', ads.lessonBannerReady, ads.errorFor('Lesson Banner')),
-                    _AdStatusRow('Free Play Banner', ads.freePlayBannerReady, ads.errorFor('Free Play Banner')),
-                    _AdStatusRow('Interstitial', ads.interstitialReady, ads.errorFor('Interstitial')),
-                    _AdStatusRow('Rewarded', ads.rewardedReady, ads.errorFor('Rewarded')),
-                    _AdStatusRow('Rewarded Hint', ads.rewardedHintReady, ads.errorFor('Rewarded Hint')),
+                    _AdStatusRow(
+                      'Banner Home',
+                      ads.homeBannerReady,
+                      ads.errorFor('Home Banner'),
+                    ),
+                    _AdStatusRow(
+                      'Banner Lesson',
+                      ads.lessonBannerReady,
+                      ads.errorFor('Lesson Banner'),
+                    ),
+                    _AdStatusRow(
+                      'Free Play Banner',
+                      ads.freePlayBannerReady,
+                      ads.errorFor('Free Play Banner'),
+                    ),
+                    _AdStatusRow(
+                      'Interstitial',
+                      ads.interstitialReady,
+                      ads.errorFor('Interstitial'),
+                    ),
+                    _AdStatusRow(
+                      'Rewarded',
+                      ads.rewardedReady,
+                      ads.errorFor('Rewarded'),
+                    ),
+                    _AdStatusRow(
+                      'Rewarded Hint',
+                      ads.rewardedHintReady,
+                      ads.errorFor('Rewarded Hint'),
+                    ),
                     if (ads.errorFor('SDK') != null) ...[
                       const SizedBox(height: 8),
                       _ErrorBox(ads.errorFor('SDK')!),
@@ -150,14 +186,12 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ),
             ),
-
             const SizedBox(height: WaqtiSpacing.md),
-
             _Card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SectionHeader(Icons.bar_chart_rounded, 'إحصائياتي'),
+                  const _SectionHeader(Icons.bar_chart_rounded, 'إحصائياتي'),
                   const SizedBox(height: WaqtiSpacing.md),
                   Row(
                     children: [
@@ -171,37 +205,43 @@ class SettingsPage extends ConsumerWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: WaqtiSpacing.md),
-
             _Card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SectionHeader(Icons.info_outline_rounded, 'عن التطبيق'),
+                  const _SectionHeader(Icons.info_outline_rounded, 'عن التطبيق'),
                   const SizedBox(height: WaqtiSpacing.md),
-                  _InfoRow('الإصدار', '3.0.0'),
-                  _InfoRow('المطوّر', 'Daryne'),
-                  _InfoRow('البريد', 'support@waqti-app.com'),
+                  const _InfoRow('الإصدار', '3.0.0'),
+                  const _InfoRow('المطوّر', 'Daryne'),
+                  const _InfoRow('البريد', 'support@waqti-app.com'),
                 ],
               ),
             ),
-
             const SizedBox(height: WaqtiSpacing.md),
-
             _Card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SectionHeader(Icons.warning_amber_rounded, 'منطقة الخطر', color: Colors.red),
+                  const _SectionHeader(
+                    Icons.warning_amber_rounded,
+                    'منطقة الخطر',
+                    color: Colors.red,
+                  ),
                   const SizedBox(height: WaqtiSpacing.md),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.delete_forever_outlined, color: Colors.red),
+                      icon: const Icon(
+                        Icons.delete_forever_outlined,
+                        color: Colors.red,
+                      ),
                       label: const Text(
                         'إعادة تعيين كل التقدم',
-                        style: TextStyle(fontFamily: 'Cairo', color: Colors.red),
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          color: Colors.red,
+                        ),
                       ),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Colors.red),
@@ -235,7 +275,10 @@ class SettingsPage extends ConsumerWidget {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('إعادة تعيين', style: TextStyle(fontFamily: 'Cairo')),
+            child: const Text(
+              'إعادة تعيين',
+              style: TextStyle(fontFamily: 'Cairo'),
+            ),
           ),
         ],
       ),
@@ -313,20 +356,29 @@ class _AdStatusRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(ready ? Icons.check_circle : Icons.info_outline, color: color, size: 18),
+              Icon(
+                ready ? Icons.check_circle : Icons.info_outline,
+                color: color,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   label,
                   style: const TextStyle(
-                    fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w600,
+                    fontFamily: 'Cairo',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
               Text(
                 status,
                 style: TextStyle(
-                  fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.w700, color: color,
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: color,
                 ),
               ),
             ],
@@ -336,7 +388,11 @@ class _AdStatusRow extends StatelessWidget {
               padding: const EdgeInsets.only(right: 26, top: 2),
               child: Text(
                 error!,
-                style: const TextStyle(fontFamily: 'Cairo', fontSize: 9, color: Colors.red),
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 9,
+                  color: Colors.red,
+                ),
               ),
             ),
         ],
@@ -359,7 +415,11 @@ class _ErrorBox extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: const TextStyle(fontFamily: 'Cairo', fontSize: 10, color: Colors.red),
+          style: const TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: 10,
+            color: Colors.red,
+          ),
         ),
       );
 }
@@ -384,13 +444,19 @@ class _StatPill extends StatelessWidget {
               Text(
                 value,
                 style: const TextStyle(
-                  fontFamily: 'Cairo', fontSize: 18, fontWeight: FontWeight.w800,
+                  fontFamily: 'Cairo',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
                   color: WaqtiColors.primary,
                 ),
               ),
               Text(
                 label,
-                style: const TextStyle(fontFamily: 'Cairo', fontSize: 10, color: WaqtiColors.textLight),
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 10,
+                  color: WaqtiColors.textLight,
+                ),
               ),
             ],
           ),
@@ -410,13 +476,19 @@ class _InfoRow extends StatelessWidget {
           children: [
             Text(
               '$label: ',
-              style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, color: WaqtiColors.textLight),
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 13,
+                color: WaqtiColors.textLight,
+              ),
             ),
             Expanded(
               child: Text(
                 value,
                 style: const TextStyle(
-                  fontFamily: 'Cairo', fontSize: 11, fontWeight: FontWeight.w600,
+                  fontFamily: 'Cairo',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                   color: WaqtiColors.textDark,
                 ),
               ),
@@ -424,3 +496,4 @@ class _InfoRow extends StatelessWidget {
           ],
         ),
       );
+}
