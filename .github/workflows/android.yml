@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 'fix/**'
   pull_request:
     branches:
       - main
@@ -46,27 +47,51 @@ jobs:
       - name: Run Tests
         run: flutter test
 
+      # Release signing is required for the APK/AAB validation below.
+      # Secrets are available on trusted branch pushes, but are intentionally
+      # not used for pull_request runs.
       - name: Setup Keystore
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          test -n "${{ secrets.KEYSTORE_BASE64 }}" || (echo "KEYSTORE_BASE64 is missing" && exit 1)
-          test -n "${{ secrets.KEYSTORE_PASSWORD }}" || (echo "KEYSTORE_PASSWORD is missing" && exit 1)
-          test -n "${{ secrets.KEY_ALIAS }}" || (echo "KEY_ALIAS is missing" && exit 1)
-          test -n "${{ secrets.KEY_PASSWORD }}" || (echo "KEY_PASSWORD is missing" && exit 1)
+          set -e
+          test -n "$KEYSTORE_BASE64" || (echo "KEYSTORE_BASE64 is missing" && exit 1)
+          test -n "$KEYSTORE_PASSWORD" || (echo "KEYSTORE_PASSWORD is missing" && exit 1)
+          test -n "$KEY_ALIAS" || (echo "KEY_ALIAS is missing" && exit 1)
+          test -n "$KEY_PASSWORD" || (echo "KEY_PASSWORD is missing" && exit 1)
 
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          test -s android/app/upload-keystore.jks
 
           cat > android/key.properties <<EOF
-          storeFile=upload-keystore.jks
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          EOF
+storeFile=${{ github.workspace }}/android/app/upload-keystore.jks
+storePassword=$KEYSTORE_PASSWORD
+keyAlias=$KEY_ALIAS
+keyPassword=$KEY_PASSWORD
+EOF
+
+          test -s android/key.properties
+          echo "Release keystore configured successfully."
+
+      - name: Verify release signing configuration
+        if: github.event_name != 'pull_request'
+        run: |
+          test -s android/app/upload-keystore.jks
+          test -s android/key.properties
+          grep -q '^storeFile=' android/key.properties
+          grep -q '^keyAlias=' android/key.properties
+          echo "Signing files are present."
 
       - name: Build APK
+        if: github.event_name != 'pull_request'
         run: flutter build apk --release --no-shrink
 
       - name: Validate APK structure and signature
+        if: github.event_name != 'pull_request'
         run: |
           APK="build/app/outputs/flutter-apk/app-release.apk"
           test -s "$APK"
@@ -76,6 +101,7 @@ jobs:
           "$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E "package: name='com.daryne.waqti'|launchable-activity"
 
       - name: Install and launch APK on Android Emulator
+        if: github.event_name != 'pull_request'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -92,18 +118,22 @@ jobs:
             adb logcat -d -t 300 | grep -E "FATAL EXCEPTION|AndroidRuntime|com.daryne.waqti" || true
 
       - name: Build AppBundle
+        if: github.event_name != 'pull_request'
         run: flutter build appbundle --release --no-shrink
 
       - name: Validate AAB exists
+        if: github.event_name != 'pull_request'
         run: test -s build/app/outputs/bundle/release/app-release.aab
 
       - name: Upload APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: waqti-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload AAB
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: waqti-release-aab
