@@ -75,9 +75,6 @@ class _LessonPageState extends ConsumerState<LessonPage> {
 
     await ref.read(progressNotifierProvider.notifier)
         .completeLesson(widget.lesson.id, stars, correct, totalQ);
-    // Production interstitial is eligible after every completed lesson,
-    // starting with lesson 1. If Google has not filled the ad yet, the
-    // service simply preloads the next one without blocking the lesson.
     await ref.read(adServiceProvider).onLessonComplete();
   }
 
@@ -98,36 +95,16 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     );
   }
 
-  Widget _lessonBanner() {
-    final ads = ref.watch(adServiceProvider);
-    final isPremium = ref.watch(progressNotifierProvider).valueOrNull?.isPremium ?? false;
-    if (isPremium || !ads.lessonBannerReady || ads.lessonBanner == null) {
-      return const SizedBox.shrink();
-    }
-    return Container(
-      width: double.infinity,
-      height: ads.lessonBanner!.size.height.toDouble(),
-      alignment: Alignment.center,
-      color: Colors.white,
-      child: SizedBox(
-        width: ads.lessonBanner!.size.width.toDouble(),
-        height: ads.lessonBanner!.size.height.toDouble(),
-        child: AdWidget(ad: ads.lessonBanner!),
-      ),
-    );
-  }
-
   Widget _buildQuestion() => Column(children: [
     _topBar(),
     Expanded(child: SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
       child: Column(children: [
         _zaidBubble(),
         const SizedBox(height: 16),
         _isCalc ? _buildCalcQ() : _buildTimeQ(),
       ]),
     )),
-    _lessonBanner(),
   ]);
 
   Widget _topBar() => Container(
@@ -171,7 +148,7 @@ class _LessonPageState extends ConsumerState<LessonPage> {
 
   Widget _zaidBubble() {
     final prompt = _isCalc ? widget.lesson.calcQuestions[qi].prompt : widget.lesson.questions[qi].prompt;
-    final mood = !answered ? ZaidMood.thinking : (lastCorrect == true ? ZaidMood.celebrating : ZaidMood.encouraging);
+    final mood   = !answered ? ZaidMood.thinking : (lastCorrect == true ? ZaidMood.celebrating : ZaidMood.encouraging);
     return ZaidMascot(mood: mood, size: 80, speech: prompt);
   }
 
@@ -179,12 +156,13 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     final q = widget.lesson.questions[qi];
     return switch (q.type) {
       QuestionType.multipleChoice => _buildMC(q),
-      QuestionType.setHands => _buildSetHands(q),
-      QuestionType.digitalMC => _buildDigitalMC(q),
-      _ => _buildMC(q),
+      QuestionType.setHands       => _buildSetHands(q),
+      QuestionType.digitalMC      => _buildDigitalMC(q),
+      _                           => _buildMC(q),
     };
   }
 
+  // ── Multiple Choice ─────────────────────────────────────────
   Widget _buildMC(TimeQuestion q) {
     final choices = _genChoices(q.hour, q.minute);
     return Column(children: [
@@ -195,9 +173,9 @@ class _LessonPageState extends ConsumerState<LessonPage> {
         crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 2.3,
         children: choices.map((c) {
           final isCorrect = c == q.timeStr;
-          final bg = answered && isCorrect ? const Color(0xFFE8F5E9) : Colors.white;
+          final bg     = answered && isCorrect ? const Color(0xFFE8F5E9) : Colors.white;
           final border = answered && isCorrect ? WaqtiColors.mint : color.withOpacity(.2);
-          final fg = answered && isCorrect ? const Color(0xFF2E7D32) : WaqtiColors.textDark;
+          final fg     = answered && isCorrect ? const Color(0xFF2E7D32) : WaqtiColors.textDark;
           return GestureDetector(
             onTap: answered ? null : () { _sound.click(); _onAnswer(c == q.timeStr); },
             child: AnimatedContainer(duration: 200.ms,
@@ -211,6 +189,7 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     ]);
   }
 
+  // ── Digital MC ──────────────────────────────────────────────
   Widget _buildDigitalMC(TimeQuestion q) {
     final h12 = q.hour > 12 ? q.hour - 12 : (q.hour == 0 ? 12 : q.hour);
     final choices = _genDigChoices(q.hour, q.minute);
@@ -219,7 +198,8 @@ class _LessonPageState extends ConsumerState<LessonPage> {
       const SizedBox(height: 10),
       AmPmBadge(hour: q.hour),
       const SizedBox(height: 6),
-      Text('الوقت بالساعة الرقمية: ${q.time24Str}', style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, color: WaqtiColors.textLight)),
+      Text('الوقت بالساعة الرقمية: ${q.time24Str}',
+        style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, color: WaqtiColors.textLight)),
       const SizedBox(height: 18),
       GridView.count(crossAxisCount: 2, shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -246,6 +226,7 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     ]);
   }
 
+  // ── Set Hands ───────────────────────────────────────────────
   Widget _buildSetHands(TimeQuestion q) {
     final correctNow = answered && setH % 12 == q.hour % 12 && setM == q.minute;
     return Column(children: [
@@ -259,7 +240,10 @@ class _LessonPageState extends ConsumerState<LessonPage> {
       InteractiveClock(
         initialHour: 12, initialMinute: 0,
         size: WaqtiSize.lessonClockSize(context), color: color,
-        onChanged: answered ? (h, m) {} : (h, m) { _sound.click(); setState(() { setH = h; setM = m; }); },
+        onChanged: answered ? (h, m) {} : (h, m) {
+          _sound.click();
+          setState(() { setH = h; setM = m; });
+        },
       ),
       const SizedBox(height: 14),
       Text('${setH.toString().padLeft(2,'0')}:${setM.toString().padLeft(2,'0')}',
@@ -267,10 +251,12 @@ class _LessonPageState extends ConsumerState<LessonPage> {
           color: answered ? (correctNow ? const Color(0xFF2E7D32) : const Color(0xFFC62828)) : color)),
       if (answered && !correctNow)
         Padding(padding: const EdgeInsets.only(top: 6),
-          child: Text('الإجابة الصحيحة: ${q.timeStr} — ${q.arabicTime}', textAlign: TextAlign.center,
+          child: Text('الإجابة الصحيحة: ${q.timeStr} — ${q.arabicTime}',
+            textAlign: TextAlign.center,
             style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFC62828)))),
       const SizedBox(height: 6),
-      const Text('☝️ المس الساعة واسحب العقرب الذي تريد تحريكه', style: TextStyle(fontFamily: 'Cairo', fontSize: 11, color: WaqtiColors.textLight)),
+      const Text('☝️ المس الساعة واسحب العقرب الذي تريد تحريكه',
+        style: TextStyle(fontFamily: 'Cairo', fontSize: 11, color: WaqtiColors.textLight)),
       const SizedBox(height: 16),
       if (!answered)
         ElevatedButton(
@@ -282,6 +268,7 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     ]);
   }
 
+  // ── Time Calc ───────────────────────────────────────────────
   Widget _buildCalcQ() {
     final q = widget.lesson.calcQuestions[qi];
     Future.microtask(() => _sound.countdown());
@@ -302,17 +289,21 @@ class _LessonPageState extends ConsumerState<LessonPage> {
       const SizedBox(height: 24),
       Container(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(color: color.withOpacity(.08), borderRadius: BorderRadius.circular(12)),
-        child: const Text('🧮 كم من الوقت مرّ؟', style: TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w700, color: WaqtiColors.textDark))),
+        child: const Text('🧮 كم من الوقت مرّ؟',
+          style: TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w700, color: WaqtiColors.textDark))),
       const SizedBox(height: 18),
       GridView.count(crossAxisCount: 2, shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(), crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 2.4,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 2.4,
         children: q.options.map((opt) {
           final isCorrect = opt == q.elapsedStr;
           return GestureDetector(
             onTap: answered ? null : () { _sound.click(); _onAnswer(isCorrect); },
             child: AnimatedContainer(duration: 200.ms,
-              decoration: BoxDecoration(color: answered && isCorrect ? const Color(0xFFE8F5E9) : Colors.white,
-                borderRadius: BorderRadius.circular(14), border: Border.all(color: answered && isCorrect ? WaqtiColors.mint : color.withOpacity(.2), width: 2.5),
+              decoration: BoxDecoration(
+                color: answered && isCorrect ? const Color(0xFFE8F5E9) : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: answered && isCorrect ? WaqtiColors.mint : color.withOpacity(.2), width: 2.5),
                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 6, offset: const Offset(0,2))]),
               child: Center(child: Text(opt, style: const TextStyle(fontFamily: 'Cairo', fontSize: 18, fontWeight: FontWeight.w700, color: WaqtiColors.textDark)))));
         }).toList()),
@@ -326,105 +317,120 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     return ElevatedButton(
       onPressed: _next,
       style: ElevatedButton.styleFrom(backgroundColor: color, minimumSize: const Size(double.infinity, 52), padding: EdgeInsets.zero),
-      child: Text(isLast ? 'أكمل الدرس 🎉' : 'السؤال التالي ←', style: const TextStyle(fontFamily: 'Cairo', fontSize: 16, fontWeight: FontWeight.w700)),
+      child: Text(isLast ? 'أكمل الدرس 🎉' : 'السؤال التالي ←',
+        style: const TextStyle(fontFamily: 'Cairo', fontSize: 16, fontWeight: FontWeight.w700)),
     ).animate().fadeIn(duration: 250.ms).scale(begin: const Offset(.92,.92));
   }
 
-  Widget _rewardButton({required bool hint, required bool ready}) {
-    final label = hint ? '🎁 شاهد إعلانًا للحصول على تلميح' : '🎁 شاهد إعلانًا واحصل على مكافأة';
-    return SizedBox(width: double.infinity, child: OutlinedButton.icon(
-      onPressed: ready ? () async {
-        _sound.click();
-        final ok = hint
-            ? await ref.read(adServiceProvider).showRewardedHint(onRewarded: (amount) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('حصلت على تلميح 🎁 +$amount', style: const TextStyle(fontFamily: 'Cairo'))));
-              })
-            : await ref.read(adServiceProvider).showRewarded(onRewarded: (amount) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('مكافأة +$amount 🎁', style: const TextStyle(fontFamily: 'Cairo'))));
-              });
-        if (!ok && mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الإعلان غير متاح الآن، حاول بعد لحظات.', style: TextStyle(fontFamily: 'Cairo'))));
-      } : null,
-      icon: const Icon(Icons.card_giftcard_outlined),
-      label: Text(label, style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700)),
-    ));
-  }
-
+  // ── Finish screen ───────────────────────────────────────────
   Widget _buildFinish() {
     final stars = correct == totalQ ? 3 : correct >= (totalQ*2/3).ceil() ? 2 : 1;
-    final pct = (correct / totalQ * 100).round();
-    final next = CurriculumDatasource.instance.findNext(widget.unit.id, widget.lesson.id);
-    final ads = ref.watch(adServiceProvider);
+    final pct   = (correct / totalQ * 100).round();
+    final next  = CurriculumDatasource.instance.findNext(widget.unit.id, widget.lesson.id);
+    final ads   = ref.watch(adServiceProvider);
     final isPremium = ref.watch(progressNotifierProvider).valueOrNull?.isPremium ?? false;
 
     return SingleChildScrollView(child: Padding(padding: const EdgeInsets.all(28), child: Column(children: [
       const SizedBox(height: 12),
-      ZaidMascot(mood: stars == 3 ? ZaidMood.celebrating : ZaidMood.happy, size: 120,
+      ZaidMascot(
+        mood: stars == 3 ? ZaidMood.celebrating : ZaidMood.happy, size: 120,
         speech: stars == 3 ? 'ممتاز! درجة مثالية! 🏆' : stars == 2 ? 'أحسنت! عمل رائع! 🌟' : 'استمر في التدريب! 💪'),
       const SizedBox(height: 20),
       const Text('انتهى الدرس!', style: TextStyle(fontFamily: 'Cairo', fontSize: 26, fontWeight: FontWeight.w800, color: WaqtiColors.textDark)),
       const SizedBox(height: 12),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(3, (i) => Text(i < stars ? '⭐' : '☆', style: const TextStyle(fontSize: 42)).animate(delay: Duration(milliseconds: 200+i*150)).scale(begin: const Offset(0,0)))),
+      Row(mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(3, (i) =>
+          Text(i < stars ? '⭐' : '☆', style: const TextStyle(fontSize: 42))
+            .animate(delay: Duration(milliseconds: 200+i*150)).scale(begin: const Offset(0,0)))),
       const SizedBox(height: 10),
       Text('$correct من $totalQ إجابات صحيحة', style: const TextStyle(fontFamily: 'Cairo', fontSize: 15, color: WaqtiColors.textMid)),
       const SizedBox(height: 8),
-      Wrap(spacing: 10, alignment: WrapAlignment.center, children: [_pill('الدقة: $pct%'), _pill('✓ $correct / ✗ ${totalQ-correct}')]),
+      Wrap(spacing: 10, alignment: WrapAlignment.center, children: [
+        _pill('الدقة: $pct%'), _pill('✓ $correct / ✗ ${totalQ-correct}'),
+      ]),
       const SizedBox(height: 20),
-      if (!isPremium) ...[
-        _rewardButton(hint: false, ready: ads.rewardedReady),
-        const SizedBox(height: 8),
-        _rewardButton(hint: true, ready: ads.rewardedHintReady),
-        const SizedBox(height: 14),
-      ],
       if (next.lesson != null)
         Padding(padding: const EdgeInsets.only(bottom: 10), child: SizedBox(width: double.infinity,
-          child: ElevatedButton(onPressed: () { _sound.click(); context.pushReplacement('/lesson', extra: LessonRouteArgs(unit: next.unit!, lesson: next.lesson!)); },
+          child: ElevatedButton(
+            onPressed: () {
+              _sound.click();
+              context.pushReplacement('/lesson', extra: LessonRouteArgs(unit: next.unit!, lesson: next.lesson!));
+            },
             style: ElevatedButton.styleFrom(backgroundColor: next.unit!.color, padding: const EdgeInsets.symmetric(vertical: 15)),
-            child: Text('التالي: ${next.lesson!.title} ${next.unit!.emoji} ←', style: const TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w700))))),
-      SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () { _sound.click(); context.go('/'); },
+            child: Text('التالي: ${next.lesson!.title} ${next.unit!.emoji} ←',
+              style: const TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w700))))),
+      SizedBox(width: double.infinity, child: ElevatedButton(
+        onPressed: () { _sound.click(); context.go('/'); },
         style: ElevatedButton.styleFrom(backgroundColor: WaqtiColors.primary, padding: const EdgeInsets.symmetric(vertical: 15)),
         child: const Text('العودة للمسار 🏠', style: TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w700)))),
       const SizedBox(height: 8),
-      SizedBox(width: double.infinity, child: OutlinedButton(onPressed: () { _sound.click(); setState(() { qi=0; correct=0; finished=false; results=List.filled(totalQ,null); _resetQ(); }); },
+      SizedBox(width: double.infinity, child: OutlinedButton(
+        onPressed: () { _sound.click(); setState(() { qi=0; correct=0; finished=false; results=List.filled(totalQ,null); _resetQ(); }); },
         style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
         child: const Text('🔄 أعد الدرس', style: TextStyle(fontFamily: 'Cairo', fontSize: 14, fontWeight: FontWeight.w600, color: WaqtiColors.textMid)))),
-      if (!isPremium) ...[
+      if (!isPremium && ads.lessonBannerReady && ads.lessonBanner != null) ...[
         const SizedBox(height: 16),
-        _lessonBanner(),
+        SizedBox(
+          width:  ads.lessonBanner!.size.width.toDouble(),
+          height: ads.lessonBanner!.size.height.toDouble(),
+          child:  AdWidget(ad: ads.lessonBanner!),
+        ),
       ],
     ])));
   }
 
-  Widget _pill(String t) => Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+  Widget _pill(String t) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
     decoration: BoxDecoration(color: WaqtiColors.sky, borderRadius: BorderRadius.circular(20)),
     child: Text(t, style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.w600, color: WaqtiColors.primary)));
 
+  // ── Choice generators ───────────────────────────────────────
   static const _minPool = [0,0,15,30,45,5,10,20,25,30,35,40,50,55];
 
   List<String> _genChoices(int h, int m) {
-    String ts(int hh, int mm) { final h12 = hh>12?hh-12:(hh==0?12:hh); return '${h12.toString().padLeft(2,'0')}:${mm.toString().padLeft(2,'0')}'; }
-    final correct = ts(h, m); final pool = <String>{correct}; final rng = math.Random(); int tries = 0;
-    while (pool.length < 4 && tries++ < 60) pool.add(ts(rng.nextInt(12)+1, _minPool[rng.nextInt(_minPool.length)]));
+    String ts(int hh, int mm) {
+      final h12 = hh>12?hh-12:(hh==0?12:hh);
+      return '${h12.toString().padLeft(2,'0')}:${mm.toString().padLeft(2,'0')}';
+    }
+    final correct = ts(h, m);
+    final pool = <String>{correct};
+    final rng = math.Random();
+    int tries = 0;
+    while (pool.length < 4 && tries++ < 60) {
+      pool.add(ts(rng.nextInt(12)+1, _minPool[rng.nextInt(_minPool.length)]));
+    }
     return pool.toList()..shuffle();
   }
 
   List<_DigChoice> _genDigChoices(int h, int m) {
     String t24(int hh, int mm) => '${hh.toString().padLeft(2,'0')}:${mm.toString().padLeft(2,'0')}';
     String apAr(int hh) => hh < 12 ? 'صباحًا' : 'مساءً';
-    final correct = t24(h, m); final seen = <String>{correct};
+    final correct = t24(h, m);
+    final seen = <String>{correct};
     final list = <_DigChoice>[_DigChoice(correct, '$correct ${apAr(h)}', true)];
     final swapH = h < 12 ? h + 12 : h - 12;
-    final candidates = [_DigChoice(t24(swapH,m), '${t24(swapH,m)} ${apAr(swapH)}', false), _DigChoice(t24((h+1)%24,m), '${t24((h+1)%24,m)} ${apAr((h+1)%24)}', false), _DigChoice(t24((h+23)%24,m), '${t24((h+23)%24,m)} ${apAr((h+23)%24)}', false)];
-    if (h==0) candidates.add(const _DigChoice('12:00','12:00 PM — الظهيرة',false));
+    final candidates = [
+      _DigChoice(t24(swapH,m),          '${t24(swapH,m)} ${apAr(swapH)}',          false),
+      _DigChoice(t24((h+1)%24,m),       '${t24((h+1)%24,m)} ${apAr((h+1)%24)}',   false),
+      _DigChoice(t24((h+23)%24,m),      '${t24((h+23)%24,m)} ${apAr((h+23)%24)}', false),
+    ];
+    if (h==0)          candidates.add(const _DigChoice('12:00','12:00 PM — الظهيرة',false));
     if (h==12 && m==0) candidates.add(const _DigChoice('00:00','00:00 — منتصف الليل',false));
-    for (final c in candidates) if (!seen.contains(c.time) && list.length < 4) { seen.add(c.time); list.add(c); }
+    for (final c in candidates) {
+      if (!seen.contains(c.time) && list.length < 4) { seen.add(c.time); list.add(c); }
+    }
     final rng = math.Random();
-    while (list.length < 4) { final rh = rng.nextInt(24); final t = t24(rh,m); if (!seen.contains(t)) { seen.add(t); list.add(_DigChoice(t,'$t ${apAr(rh)}',false)); } }
-    list.shuffle(); return list;
+    while (list.length < 4) {
+      final rh = rng.nextInt(24); final t = t24(rh,m);
+      if (!seen.contains(t)) { seen.add(t); list.add(_DigChoice(t,'$t ${apAr(rh)}',false)); }
+    }
+    list.shuffle();
+    return list;
   }
 }
 
 class _DigChoice {
   const _DigChoice(this.time, this.label, this.correct);
   final String time, label;
-  final bool correct;
+  final bool   correct;
 }
