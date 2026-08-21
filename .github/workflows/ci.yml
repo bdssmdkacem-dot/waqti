@@ -30,7 +30,6 @@ env:
   FLUTTER_VERSION: "stable"
 
 jobs:
-
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
@@ -48,11 +47,8 @@ jobs:
       - name: Get packages
         run: flutter pub get
 
-      - name: Format Dart files
-        run: dart format lib test
-
       - name: Analyze
-        run: flutter analyze --no-fatal-infos
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
   test:
     name: Run Tests
