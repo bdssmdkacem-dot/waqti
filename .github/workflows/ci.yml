@@ -33,20 +33,16 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
       - name: Get packages
         run: flutter pub get
-
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
@@ -54,21 +50,16 @@ jobs:
     name: Run Tests
     needs: analyze
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
       - name: Get packages
         run: flutter pub get
-
       - name: Run tests
         run: flutter test --coverage
-
       - name: Upload coverage
         uses: codecov/codecov-action@v5
         with:
@@ -79,7 +70,6 @@ jobs:
     name: Build APK & AAB
     needs: test
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -88,6 +78,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
 
       - uses: subosito/flutter-action@v2
         with:
@@ -97,30 +88,58 @@ jobs:
       - name: Get packages
         run: flutter pub get
 
-      - name: Decode Keystore
-        if: github.ref == 'refs/heads/main'
+      - name: Prepare release keystore
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          set -euo pipefail
 
-      - name: Create key.properties
-        if: github.ref == 'refs/heads/main'
-        run: |
+          test -n "$KEYSTORE_BASE64" || { echo "ERROR: KEYSTORE_BASE64 is missing"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "ERROR: KEYSTORE_PASSWORD is missing"; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "ERROR: KEY_ALIAS is missing"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "ERROR: KEY_PASSWORD is missing"; exit 1; }
+
+          mkdir -p android/app
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          test -s android/app/upload-keystore.jks || { echo "ERROR: decoded keystore is empty"; exit 1; }
+
           cat > android/key.properties <<EOF
           storeFile=upload-keystore.jks
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
           EOF
 
+          test -s android/key.properties
+          echo "Release keystore prepared successfully."
+
+      - name: Verify release signing inputs
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          test -f android/key.properties
+          test -s android/app/upload-keystore.jks
+          grep -q '^storeFile=upload-keystore.jks$' android/key.properties
+          echo "Release signing configuration is ready."
+
       - name: Build APK
-        run: flutter build apk --release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: flutter build apk --release --no-shrink
 
       - name: Build App Bundle
-        run: flutter build appbundle --release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: flutter build appbundle --release --no-shrink
+
+      - name: Build debug APK for pull requests
+        if: github.event_name == 'pull_request'
+        run: flutter build apk --debug
 
       - name: Upload APK
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: waqti-apk
@@ -128,6 +147,7 @@ jobs:
           retention-days: 30
 
       - name: Upload AAB
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: waqti-aab
@@ -137,20 +157,16 @@ jobs:
   deploy:
     name: Deploy to Google Play Internal
     needs: build
-
     if: |
       github.ref == 'refs/heads/main' &&
       github.event_name == 'workflow_dispatch' &&
       github.event.inputs.deploy == 'true'
-
     runs-on: ubuntu-latest
-
     steps:
       - name: Download AAB
         uses: actions/download-artifact@v4
         with:
           name: waqti-aab
-
       - name: Upload to Play Store
         uses: r0adkll/upload-google-play@v1
         with:
