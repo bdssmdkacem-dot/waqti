@@ -20,19 +20,8 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
   bool _throttle = false;
 
   static const _hw = [
-    '',
-    'الواحدة',
-    'الثانية',
-    'الثالثة',
-    'الرابعة',
-    'الخامسة',
-    'السادسة',
-    'السابعة',
-    'الثامنة',
-    'التاسعة',
-    'العاشرة',
-    'الحادية عشرة',
-    'الثانية عشرة',
+    '', 'الواحدة', 'الثانية', 'الثالثة', 'الرابعة', 'الخامسة', 'السادسة',
+    'السابعة', 'الثامنة', 'التاسعة', 'العاشرة', 'الحادية عشرة', 'الثانية عشرة',
   ];
 
   String get _arabicTime {
@@ -56,9 +45,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
       _throttle = true;
       ref.read(soundServiceProvider).play(WaqtiSound.click);
       Future.delayed(const Duration(milliseconds: 80), () {
-        if (mounted) {
-          _throttle = false;
-        }
+        if (mounted) _throttle = false;
       });
     }
   }
@@ -80,10 +67,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
           centerTitle: true,
           title: const Text(
             '🕐 العب بالساعة',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
           ),
         ),
         body: Container(
@@ -107,28 +91,19 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 16,
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 10,
-                          offset: Offset(0, 3),
-                        ),
+                        BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 3)),
                       ],
                     ),
                     child: const Text(
                       'اضبط الساعة ثم اقرأ الوقت بالعقارب والساعة الرقمية',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Cairo', fontSize: 14, fontWeight: FontWeight.w700,
                         color: WaqtiColors.textDark,
                       ),
                     ),
@@ -140,16 +115,9 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: WaqtiColors.primary.withOpacity(.12),
-                        width: 2,
-                      ),
+                      border: Border.all(color: WaqtiColors.primary.withOpacity(.12), width: 2),
                       boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 14,
-                          offset: Offset(0, 5),
-                        ),
+                        BoxShadow(color: Colors.black12, blurRadius: 14, offset: Offset(0, 5)),
                       ],
                     ),
                     child: Column(
@@ -162,18 +130,11 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                           onChanged: _onChanged,
                         ),
                         const SizedBox(height: 12),
-                        DigitalClock(
-                          hour: h12,
-                          minute: _m,
-                          fontSize: 36,
-                        ),
+                        DigitalClock(hour: h12, minute: _m, fontSize: 36),
                         const SizedBox(height: 10),
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
                             color: WaqtiColors.sky,
                             borderRadius: BorderRadius.circular(14),
@@ -182,9 +143,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                             _arabicTime,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Cairo', fontSize: 16, fontWeight: FontWeight.w700,
                               color: WaqtiColors.primary,
                             ),
                           ),
@@ -192,21 +151,17 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                         const SizedBox(height: 10),
                         const Text(
                           '☝️ اسحب العقارب لتغيير الوقت',
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 12,
-                            color: WaqtiColors.textLight,
-                          ),
+                          style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: WaqtiColors.textLight),
                         ),
                       ],
                     ),
                   ),
-                  if (ads.homeBannerReady && ads.homeBanner != null) ...[
+                  if (ads.freePlayBannerReady && ads.freePlayBanner != null) ...[
                     const SizedBox(height: 14),
                     SizedBox(
-                      width: ads.homeBanner!.size.width.toDouble(),
-                      height: ads.homeBanner!.size.height.toDouble(),
-                      child: AdWidget(ad: ads.homeBanner!),
+                      width: ads.freePlayBanner!.size.width.toDouble(),
+                      height: ads.freePlayBanner!.size.height.toDouble(),
+                      child: AdWidget(ad: ads.freePlayBanner!),
                     ),
                   ],
                 ],
