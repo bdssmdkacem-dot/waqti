@@ -4,9 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../../core/constants/app_constants.dart';
 
-final adServiceProvider = Provider<AdService>(
-  (ref) => AdService.instance,
-);
+final adServiceProvider = ChangeNotifierProvider<AdService>((ref) => AdService.instance);
 
 class AdService extends ChangeNotifier {
   AdService._();
@@ -20,41 +18,31 @@ class AdService extends ChangeNotifier {
   bool _homeBannerReady = false;
   bool _lessonBannerReady = false;
   bool _interstitialReady = false;
+  bool _rewardedReady = false;
   int _lessonsSinceAd = 0;
 
   bool get homeBannerReady => _homeBannerReady;
   bool get lessonBannerReady => _lessonBannerReady;
+  bool get interstitialReady => _interstitialReady;
+  bool get rewardedReady => _rewardedReady;
   BannerAd? get homeBanner => _homeBanner;
   BannerAd? get lessonBanner => _lessonBanner;
 
-  // Until real ad-unit IDs are configured, always use Google's official
-  // test units. Placeholder IDs containing X must never reach AdMob.
-  static String _safeAndroidId(String id, String testId) =>
-      id.contains('X') ? testId : id;
-
   static String get _bannerId => kDebugMode
       ? AdMobIds.testBanner
-      : (Platform.isIOS
-          ? AdMobIds.iosBannerHome
-          : _safeAndroidId(AdMobIds.androidBannerHome, AdMobIds.testBanner));
+      : (Platform.isIOS ? AdMobIds.iosBannerHome : AdMobIds.androidBannerHome);
 
   static String get _lessonBannerId => kDebugMode
       ? AdMobIds.testBanner
-      : (Platform.isIOS
-          ? AdMobIds.iosBannerLesson
-          : _safeAndroidId(AdMobIds.androidBannerLesson, AdMobIds.testBanner));
+      : (Platform.isIOS ? AdMobIds.iosBannerLesson : AdMobIds.androidBannerLesson);
 
   static String get _interId => kDebugMode
       ? AdMobIds.testInterstitial
-      : (Platform.isIOS
-          ? AdMobIds.iosInterstitial
-          : _safeAndroidId(AdMobIds.androidInterstitial, AdMobIds.testInterstitial));
+      : (Platform.isIOS ? AdMobIds.iosInterstitial : AdMobIds.androidInterstitial);
 
   static String get _rewardedId => kDebugMode
       ? AdMobIds.testRewarded
-      : (Platform.isIOS
-          ? AdMobIds.iosRewarded
-          : _safeAndroidId(AdMobIds.androidRewarded, AdMobIds.testRewarded));
+      : (Platform.isIOS ? AdMobIds.iosRewarded : AdMobIds.androidRewarded);
 
   Future<void> initialize() async {
     await MobileAds.instance.initialize();
@@ -73,6 +61,7 @@ class AdService extends ChangeNotifier {
 
   void loadHomeBanner() {
     _homeBanner?.dispose();
+    _homeBannerReady = false;
     _homeBanner = BannerAd(
       adUnitId: _bannerId,
       size: AdSize.banner,
@@ -86,7 +75,8 @@ class AdService extends ChangeNotifier {
           ad.dispose();
           _homeBanner = null;
           _homeBannerReady = false;
-          if (kDebugMode) debugPrint('HomeBanner failed: $err');
+          debugPrint('Waqti AdMob Home Banner failed: $err');
+          notifyListeners();
         },
       ),
     )..load();
@@ -94,6 +84,7 @@ class AdService extends ChangeNotifier {
 
   void loadLessonBanner() {
     _lessonBanner?.dispose();
+    _lessonBannerReady = false;
     _lessonBanner = BannerAd(
       adUnitId: _lessonBannerId,
       size: AdSize.banner,
@@ -107,12 +98,17 @@ class AdService extends ChangeNotifier {
           ad.dispose();
           _lessonBanner = null;
           _lessonBannerReady = false;
+          debugPrint('Waqti AdMob Lesson Banner failed: $err');
+          notifyListeners();
         },
       ),
     )..load();
   }
 
   void loadInterstitial() {
+    _interstitial?.dispose();
+    _interstitial = null;
+    _interstitialReady = false;
     InterstitialAd.load(
       adUnitId: _interId,
       request: const AdRequest(),
@@ -120,23 +116,34 @@ class AdService extends ChangeNotifier {
         onAdLoaded: (ad) {
           _interstitial = ad;
           _interstitialReady = true;
+          notifyListeners();
         },
         onAdFailedToLoad: (err) {
           _interstitialReady = false;
-          if (kDebugMode) debugPrint('Interstitial failed: $err');
+          debugPrint('Waqti AdMob Interstitial failed: $err');
+          notifyListeners();
         },
       ),
     );
   }
 
   void loadRewarded() {
+    _rewarded?.dispose();
+    _rewarded = null;
+    _rewardedReady = false;
     RewardedAd.load(
       adUnitId: _rewardedId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) => _rewarded = ad,
+        onAdLoaded: (ad) {
+          _rewarded = ad;
+          _rewardedReady = true;
+          notifyListeners();
+        },
         onAdFailedToLoad: (err) {
-          if (kDebugMode) debugPrint('Rewarded failed: $err');
+          _rewardedReady = false;
+          debugPrint('Waqti AdMob Rewarded failed: $err');
+          notifyListeners();
         },
       ),
     );
@@ -144,38 +151,42 @@ class AdService extends ChangeNotifier {
 
   Future<void> onLessonComplete() async {
     _lessonsSinceAd++;
-    if (_lessonsSinceAd >= 3 && _interstitialReady && _interstitial != null) {
-      _lessonsSinceAd = 0;
-      _interstitial!.fullScreenContentCallback = FullScreenContentCallback(
-        onAdDismissedFullScreenContent: (ad) {
-          ad.dispose();
-          _interstitial = null;
-          _interstitialReady = false;
-          loadInterstitial();
-        },
-        onAdFailedToShowFullScreenContent: (ad, _) {
-          ad.dispose();
-          _interstitial = null;
-          _interstitialReady = false;
-          loadInterstitial();
-        },
-      );
-      await _interstitial!.show();
-    }
+    if (_lessonsSinceAd < 3) return;
+    final ad = _interstitial;
+    if (ad == null || !_interstitialReady) return;
+
+    _lessonsSinceAd = 0;
+    _interstitial = null;
+    _interstitialReady = false;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        loadInterstitial();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint('Waqti AdMob Interstitial show failed: $error');
+        ad.dispose();
+        loadInterstitial();
+      },
+    );
+    await ad.show();
   }
 
-  Future<bool> showRewarded({
-    required void Function(int amount) onRewarded,
-  }) async {
+  Future<bool> showRewarded({required void Function(int amount) onRewarded}) async {
     final ad = _rewarded;
-    if (ad == null) return false;
+    if (ad == null || !_rewardedReady) {
+      loadRewarded();
+      return false;
+    }
     _rewarded = null;
+    _rewardedReady = false;
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
         loadRewarded();
       },
-      onAdFailedToShowFullScreenContent: (ad, _) {
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint('Waqti AdMob Rewarded show failed: $error');
         ad.dispose();
         loadRewarded();
       },
