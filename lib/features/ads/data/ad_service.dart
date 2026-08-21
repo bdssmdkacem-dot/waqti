@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+
 import '../../../core/constants/app_constants.dart';
 
 final adServiceProvider = ChangeNotifierProvider<AdService>(
@@ -15,30 +17,38 @@ class AdService extends ChangeNotifier {
 
   BannerAd? _homeBanner;
   BannerAd? _lessonBanner;
+  BannerAd? _freePlayBanner;
   InterstitialAd? _interstitial;
   RewardedAd? _rewarded;
   RewardedAd? _rewardedHint;
   Timer? _retryTimer;
-  bool _initialized = false;
 
-  final Map<String, String> _errors = {};
+  bool _initialized = false;
+  bool _loadingAll = false;
+
+  final Map<String, String> _errors = <String, String>{};
 
   bool _homeBannerReady = false;
   bool _lessonBannerReady = false;
+  bool _freePlayBannerReady = false;
   bool _interstitialReady = false;
   bool _rewardedReady = false;
   bool _rewardedHintReady = false;
 
   String? get lastError => _errors.isEmpty ? null : _errors.values.last;
   String? errorFor(String type) => _errors[type];
+  bool get initialized => _initialized;
 
   bool get homeBannerReady => _homeBannerReady;
   bool get lessonBannerReady => _lessonBannerReady;
+  bool get freePlayBannerReady => _freePlayBannerReady;
   bool get interstitialReady => _interstitialReady;
   bool get rewardedReady => _rewardedReady;
   bool get rewardedHintReady => _rewardedHintReady;
+
   BannerAd? get homeBanner => _homeBanner;
   BannerAd? get lessonBanner => _lessonBanner;
+  BannerAd? get freePlayBanner => _freePlayBanner;
 
   static String get _bannerId => kDebugMode
       ? AdMobIds.testBanner
@@ -69,34 +79,60 @@ class AdService extends ChangeNotifier {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // Waqti is configured as a mixed-audience app. Do not force every user
-    // to be treated as a child or under the age of consent. Those flags must
-    // only be set when the actual user's applicable status is known.
-    await MobileAds.instance.updateRequestConfiguration(
-      RequestConfiguration(
-        maxAdContentRating: MaxAdContentRating.g,
-      ),
-    );
-
-    final status = await MobileAds.instance.initialize();
-    _initialized = true;
-    debugPrint('Waqti AdMob initialized: ${status.adapterStatuses}');
-    for (final entry in status.adapterStatuses.entries) {
-      debugPrint(
-        'Waqti AdMob adapter ${entry.key}: '
-        'state=${entry.value.state}, description=${entry.value.description}, '
-        'latency=${entry.value.latency}',
+    try {
+      await MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(
+          // Waqti is a mixed-audience app. Do not force child/under-age flags.
+          maxAdContentRating: MaxAdContentRating.g,
+        ),
       );
+
+      final status = await MobileAds.instance.initialize();
+      _initialized = true;
+
+      debugPrint('Waqti AdMob initialized: ${status.adapterStatuses}');
+      for (final entry in status.adapterStatuses.entries) {
+        debugPrint(
+          'Waqti AdMob adapter ${entry.key}: '
+          'state=${entry.value.state}, '
+          'description=${entry.value.description}, '
+          'latency=${entry.value.latency}',
+        );
+      }
+
+      notifyListeners();
+      _loadAll();
+    } catch (error, stackTrace) {
+      _errors['SDK'] = 'SDK initialization failed: $error';
+      debugPrint('Waqti AdMob SDK initialization failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      notifyListeners();
+      _scheduleRetry();
+      rethrow;
+    }
+  }
+
+  void reloadAll() {
+    if (!_initialized) {
+      unawaited(initialize());
+      return;
     }
     _loadAll();
   }
 
   void _loadAll() {
-    loadHomeBanner();
-    loadLessonBanner();
-    loadInterstitial();
-    loadRewarded();
-    loadRewardedHint();
+    if (!_initialized || _loadingAll) return;
+    _loadingAll = true;
+    try {
+      loadHomeBanner();
+      loadLessonBanner();
+      loadFreePlayBanner();
+      loadInterstitial();
+      loadRewarded();
+      loadRewardedHint();
+    } finally {
+      _loadingAll = false;
+    }
   }
 
   void _recordError(String type, LoadAdError error) {
@@ -124,6 +160,7 @@ class AdService extends ChangeNotifier {
   }
 
   void loadHomeBanner() {
+    if (!_initialized) return;
     _homeBanner?.dispose();
     _homeBannerReady = false;
     _homeBanner = BannerAd(
@@ -146,6 +183,7 @@ class AdService extends ChangeNotifier {
   }
 
   void loadLessonBanner() {
+    if (!_initialized) return;
     _lessonBanner?.dispose();
     _lessonBannerReady = false;
     _lessonBanner = BannerAd(
@@ -167,7 +205,33 @@ class AdService extends ChangeNotifier {
     )..load();
   }
 
+  // A BannerAd cannot safely be mounted in Home and Free Play at the same
+  // time. Use a separate BannerAd instance, even though the unit ID is shared.
+  void loadFreePlayBanner() {
+    if (!_initialized) return;
+    _freePlayBanner?.dispose();
+    _freePlayBannerReady = false;
+    _freePlayBanner = BannerAd(
+      adUnitId: _bannerId,
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          _freePlayBannerReady = true;
+          _recordLoaded('Free Play Banner', _bannerId);
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          _freePlayBanner = null;
+          _freePlayBannerReady = false;
+          _recordError('Free Play Banner', error);
+        },
+      ),
+    )..load();
+  }
+
   void loadInterstitial() {
+    if (!_initialized) return;
     _interstitial?.dispose();
     _interstitial = null;
     _interstitialReady = false;
@@ -189,6 +253,7 @@ class AdService extends ChangeNotifier {
   }
 
   void loadRewarded() {
+    if (!_initialized) return;
     _rewarded?.dispose();
     _rewarded = null;
     _rewardedReady = false;
@@ -210,6 +275,7 @@ class AdService extends ChangeNotifier {
   }
 
   void loadRewardedHint() {
+    if (!_initialized) return;
     _rewardedHint?.dispose();
     _rewardedHint = null;
     _rewardedHintReady = false;
@@ -318,6 +384,7 @@ class AdService extends ChangeNotifier {
     _retryTimer?.cancel();
     _homeBanner?.dispose();
     _lessonBanner?.dispose();
+    _freePlayBanner?.dispose();
     _interstitial?.dispose();
     _rewarded?.dispose();
     _rewardedHint?.dispose();
