@@ -9,8 +9,10 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/ads/data/ad_service.dart';
 import '../../../../features/curriculum/data/datasources/curriculum_datasource.dart';
 import '../../../../features/curriculum/domain/entities/curriculum_entities.dart';
+import '../../../../features/progress/domain/entities/progress_entity.dart';
 import '../../../../features/progress/presentation/providers/progress_provider.dart';
 import '../../../../features/settings/data/sound_service.dart';
+import '../../../../shared/widgets/learning_journey_card.dart';
 import '../../../../shared/widgets/zaid_mascot.dart';
 
 class HomePage extends ConsumerWidget {
@@ -18,11 +20,11 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final units    = CurriculumDatasource.instance.getUnits();
+    final units = CurriculumDatasource.instance.getUnits();
     final progress = ref.watch(progressNotifierProvider);
-    final ads      = ref.watch(adServiceProvider);
-    final sound    = ref.watch(soundServiceProvider);
-    final mq       = MediaQuery.of(context);
+    final ads = ref.watch(adServiceProvider);
+    final sound = ref.watch(soundServiceProvider);
+    final mq = MediaQuery.of(context);
     final isTablet = mq.size.width >= 600;
 
     return Directionality(
@@ -41,18 +43,17 @@ class HomePage extends ConsumerWidget {
               _Header(sound: sound),
               Expanded(
                 child: isTablet
-                    ? _TabletLayout(units: units, progress: progress)
-                    : _PhoneLayout(units: units, progress: progress),
+                    ? _TabletLayout(units: units, progress: progress.valueOrNull)
+                    : _PhoneLayout(units: units, progress: progress.valueOrNull),
               ),
-              // ── AdMob Banner ─────────────────────────────────
               progress.valueOrNull?.isPremium == true
                   ? const SizedBox.shrink()
                   : ads.homeBannerReady && ads.homeBanner != null
                       ? Container(
-                          width:  ads.homeBanner!.size.width.toDouble(),
+                          width: ads.homeBanner!.size.width.toDouble(),
                           height: ads.homeBanner!.size.height.toDouble(),
-                          color:  Colors.white,
-                          child:  AdWidget(ad: ads.homeBanner!),
+                          color: Colors.white,
+                          child: AdWidget(ad: ads.homeBanner!),
                         )
                       : const SizedBox.shrink(),
             ]),
@@ -63,7 +64,6 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-// ── Header ─────────────────────────────────────────────────────
 class _Header extends ConsumerWidget {
   const _Header({required this.sound});
   final SoundService sound;
@@ -75,21 +75,12 @@ class _Header extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: const BoxDecoration(
         color: WaqtiColors.primary,
-        borderRadius: BorderRadius.only(
-          bottomLeft:  Radius.circular(22),
-          bottomRight: Radius.circular(22),
-        ),
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(22), bottomRight: Radius.circular(22)),
       ),
       child: Row(children: [
         _Stat('🔥', '${progress?.streakDays ?? 0}', 'يوم'),
         const Spacer(),
-        const Text(
-          '⏰ وقتي',
-          style: TextStyle(
-            fontFamily: 'Cairo', fontSize: 22,
-            fontWeight: FontWeight.w800, color: Colors.white,
-          ),
-        ),
+        const Text('⏰ وقتي', style: TextStyle(fontFamily: 'Cairo', fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
         const Spacer(),
         Row(children: [
           _Stat('⭐', '${progress?.totalStars ?? 0}', 'نجمة'),
@@ -99,10 +90,7 @@ class _Header extends ConsumerWidget {
             builder: (_, __) => IconButton(
               padding: const EdgeInsets.all(4),
               constraints: const BoxConstraints(),
-              icon: Icon(
-                sound.isMuted ? Icons.volume_off : Icons.volume_up,
-                color: Colors.white, size: 22,
-              ),
+              icon: Icon(sound.isMuted ? Icons.volume_off : Icons.volume_up, color: Colors.white, size: 22),
               onPressed: () => sound.toggleMute(),
             ),
           ),
@@ -110,10 +98,7 @@ class _Header extends ConsumerWidget {
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(),
             icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 22),
-            onPressed: () {
-              sound.click();
-              context.push('/settings');
-            },
+            onPressed: () { sound.click(); context.push('/settings'); },
           ),
         ]),
       ]),
@@ -126,17 +111,16 @@ class _Stat extends StatelessWidget {
   final String icon, value, label;
   @override
   Widget build(BuildContext context) => Column(mainAxisSize: MainAxisSize.min, children: [
-    Text(icon,  style: const TextStyle(fontSize: 18)),
+    Text(icon, style: const TextStyle(fontSize: 18)),
     Text(value, style: const TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
     Text(label, style: TextStyle(fontFamily: 'Cairo', fontSize: 9, color: Colors.white.withOpacity(.8))),
   ]);
 }
 
-// ── Phone layout ───────────────────────────────────────────────
 class _PhoneLayout extends StatelessWidget {
   const _PhoneLayout({required this.units, required this.progress});
   final List<WaqtiUnit> units;
-  final AsyncValue<dynamic> progress;
+  final UserProgress? progress;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -144,37 +128,35 @@ class _PhoneLayout extends StatelessWidget {
     children: [
       _ZaidBubble(),
       const SizedBox(height: 14),
+      LearningJourneyCard(units: units, progress: progress),
       _FreePlayBtn(),
       const SizedBox(height: 18),
-      Text('🗺️ مسار التعلّم', style: TextStyle(
-        fontFamily: 'Cairo', fontSize: WaqtiSize.lg(context),
-        fontWeight: FontWeight.w700, color: WaqtiColors.textDark,
-      )),
+      Text('🗺️ مسار التعلّم', style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.lg(context), fontWeight: FontWeight.w700, color: WaqtiColors.textDark)),
       const SizedBox(height: 10),
-      ...units.asMap().entries.map((e) =>
-        _UnitCard(unit: e.value, unitIndex: e.key)
-            .animate().fadeIn(delay: Duration(milliseconds: 70 * e.key))
-            .slideX(begin: e.key.isEven ? -.06 : .06, end: 0),
-      ),
+      ...units.asMap().entries.map((e) => _UnitCard(unit: e.value, unitIndex: e.key).animate().fadeIn(delay: Duration(milliseconds: 70 * e.key)).slideX(begin: e.key.isEven ? -.06 : .06, end: 0)),
     ],
   );
 }
 
-// ── Tablet layout ──────────────────────────────────────────────
 class _TabletLayout extends StatelessWidget {
   const _TabletLayout({required this.units, required this.progress});
   final List<WaqtiUnit> units;
-  final AsyncValue<dynamic> progress;
+  final UserProgress? progress;
 
   @override
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       SizedBox(
-        width: 280,
+        width: 300,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: Column(children: [_ZaidBubble(), const SizedBox(height: 16), _FreePlayBtn()]),
+          child: Column(children: [
+            _ZaidBubble(),
+            const SizedBox(height: 16),
+            LearningJourneyCard(units: units, progress: progress),
+            _FreePlayBtn(),
+          ]),
         ),
       ),
       const VerticalDivider(width: 1),
@@ -182,15 +164,9 @@ class _TabletLayout extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           children: [
-            Text('🗺️ مسار التعلّم', style: TextStyle(
-              fontFamily: 'Cairo', fontSize: WaqtiSize.lg(context),
-              fontWeight: FontWeight.w700, color: WaqtiColors.textDark,
-            )),
+            Text('🗺️ مسار التعلّم', style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.lg(context), fontWeight: FontWeight.w700, color: WaqtiColors.textDark)),
             const SizedBox(height: 10),
-            ...units.asMap().entries.map((e) =>
-              _UnitCard(unit: e.value, unitIndex: e.key)
-                  .animate().fadeIn(delay: Duration(milliseconds: 60 * e.key)),
-            ),
+            ...units.asMap().entries.map((e) => _UnitCard(unit: e.value, unitIndex: e.key).animate().fadeIn(delay: Duration(milliseconds: 60 * e.key))),
           ],
         ),
       ),
@@ -198,29 +174,19 @@ class _TabletLayout extends StatelessWidget {
   );
 }
 
-// ── Zaid mascot bubble ─────────────────────────────────────────
 class _ZaidBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sz = (MediaQuery.of(context).size.width * 0.24).clamp(80.0, 110.0);
-    return Center(
-      child: ZaidMascot(
-        mood: ZaidMood.happy, size: sz,
-        speech: 'مرحباً! هل أنت مستعد؟ 🎉',
-      ),
-    ).animate().fadeIn(duration: 500.ms);
+    return Center(child: ZaidMascot(mood: ZaidMood.happy, size: sz, speech: 'مرحباً! هل أنت مستعد؟ 🎉')).animate().fadeIn(duration: 500.ms);
   }
 }
 
-// ── Free-play button ───────────────────────────────────────────
 class _FreePlayBtn extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
-      onTap: () {
-        ref.read(soundServiceProvider).click();
-        context.push('/free-play');
-      },
+      onTap: () { ref.read(soundServiceProvider).click(); context.push('/free-play'); },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 18),
         decoration: BoxDecoration(
@@ -231,17 +197,13 @@ class _FreePlayBtn extends ConsumerWidget {
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Text('🕐', style: TextStyle(fontSize: 24)),
           const SizedBox(width: 10),
-          Text('العب بالساعة بحرية', style: TextStyle(
-            fontFamily: 'Cairo', fontSize: WaqtiSize.md(context),
-            fontWeight: FontWeight.w700, color: WaqtiColors.textDark,
-          )),
+          Text('العب بالساعة بحرية', style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.md(context), fontWeight: FontWeight.w700, color: WaqtiColors.textDark)),
         ]),
       ),
     );
   }
 }
 
-// ── Unit card ──────────────────────────────────────────────────
 class _UnitCard extends ConsumerWidget {
   const _UnitCard({required this.unit, required this.unitIndex});
   final WaqtiUnit unit;
@@ -249,76 +211,46 @@ class _UnitCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final progressAsync = ref.watch(progressNotifierProvider);
-    final prog = progressAsync.valueOrNull;
-
-    final allUnits  = CurriculumDatasource.instance.getUnits();
-    final prevIds   = unitIndex > 0
-        ? allUnits[unitIndex - 1].lessons.map((l) => l.id).toList()
-        : <String>[];
-    final locked    = prog == null ? true : !prog.isUnitUnlocked(unitIndex, prevIds);
-    final done      = unit.lessons.where((l) => prog?.isLessonDone(l.id) ?? false).length;
-    final pct       = unit.lessons.isEmpty ? 0.0 : done / unit.lessons.length;
-    final color     = unit.color;
+    final prog = ref.watch(progressNotifierProvider).valueOrNull;
+    final allUnits = CurriculumDatasource.instance.getUnits();
+    final prevIds = unitIndex > 0 ? allUnits[unitIndex - 1].lessons.map((l) => l.id).toList() : <String>[];
+    final locked = prog == null ? true : !prog.isUnitUnlocked(unitIndex, prevIds);
+    final done = unit.lessons.where((l) => prog?.isLessonDone(l.id) ?? false).length;
+    final pct = unit.lessons.isEmpty ? 0.0 : done / unit.lessons.length;
+    final color = unit.color;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: color.withOpacity(.2), width: 2),
         boxShadow: [BoxShadow(color: color.withOpacity(.1), blurRadius: 10, offset: const Offset(0,3))],
       ),
       child: Column(children: [
-        // Header
         Padding(
           padding: const EdgeInsets.all(14),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 48, height: 48,
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(13)),
-              child: Center(child: Text(unit.emoji, style: const TextStyle(fontSize: 24))),
-            ),
+            Container(width: 48, height: 48, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(13)), child: Center(child: Text(unit.emoji, style: const TextStyle(fontSize: 24)))),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: Text(unit.title, style: TextStyle(
-                  fontFamily: 'Cairo', fontSize: WaqtiSize.md(context),
-                  fontWeight: FontWeight.w700, color: WaqtiColors.textDark,
-                ))),
+                Expanded(child: Text(unit.title, style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.md(context), fontWeight: FontWeight.w700, color: WaqtiColors.textDark))),
                 if (unit.isFree) _badge('مجاني', WaqtiColors.mint),
-                if (locked)      const Icon(Icons.lock, size: 16, color: WaqtiColors.textLight),
+                if (locked) const Icon(Icons.lock, size: 16, color: WaqtiColors.textLight),
               ]),
               Text(unit.subtitle, style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.xs(context), color: WaqtiColors.textLight)),
               const SizedBox(height: 5),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: pct,
-                  backgroundColor: color.withOpacity(.12),
-                  valueColor: AlwaysStoppedAnimation(color),
-                  minHeight: 5,
-                ),
-              ),
+              ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: pct, backgroundColor: color.withOpacity(.12), valueColor: AlwaysStoppedAnimation(color), minHeight: 5)),
               const SizedBox(height: 2),
-              Text('$done/${unit.lessons.length} دروس', style: TextStyle(
-                fontFamily: 'Cairo', fontSize: WaqtiSize.xs(context),
-                color: WaqtiColors.textLight,
-              )),
+              Text('$done/${unit.lessons.length} دروس', style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.xs(context), color: WaqtiColors.textLight)),
             ])),
           ]),
         ),
-        // Lessons
         if (!locked)
-          ...unit.lessons.asMap().entries.map((e) =>
-            _LessonRow(lesson: e.value, index: e.key, unit: unit))
+          ...unit.lessons.asMap().entries.map((e) => _LessonRow(lesson: e.value, index: e.key, unit: unit))
         else
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text('🔒 أكمل الوحدة السابقة', style: TextStyle(
-              fontFamily: 'Cairo', fontSize: WaqtiSize.xs(context),
-              color: WaqtiColors.textLight,
-            )),
-          ),
+          Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('🔒 أكمل الوحدة السابقة', style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.xs(context), color: WaqtiColors.textLight))),
       ]),
     );
   }
@@ -331,44 +263,35 @@ class _UnitCard extends ConsumerWidget {
   );
 }
 
-// ── Lesson row ─────────────────────────────────────────────────
 class _LessonRow extends ConsumerWidget {
   const _LessonRow({required this.lesson, required this.index, required this.unit});
   final WaqtiLesson lesson;
-  final int         index;
-  final WaqtiUnit   unit;
+  final int index;
+  final WaqtiUnit unit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prog  = ref.watch(progressNotifierProvider).valueOrNull;
-    final done  = prog?.isLessonDone(lesson.id) ?? false;
+    final prog = ref.watch(progressNotifierProvider).valueOrNull;
+    final done = prog?.isLessonDone(lesson.id) ?? false;
     final stars = prog?.getLessonStars(lesson.id) ?? 0;
     final color = unit.color;
 
     return InkWell(
       onTap: () {
         ref.read(soundServiceProvider).click();
-        context.push(
-          '/lesson',
-          extra: LessonRouteArgs(unit: unit, lesson: lesson),
-        );
+        context.push('/lesson', extra: LessonRouteArgs(unit: unit, lesson: lesson));
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         child: Row(children: [
           Container(
             width: 32, height: 32,
-            decoration: BoxDecoration(
-              color: done ? color : color.withOpacity(.12),
-              shape: BoxShape.circle,
-            ),
-            child: Center(child: done
-              ? const Icon(Icons.check, color: Colors.white, size: 16)
-              : Text('${index+1}', style: TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w700, color: color))),
+            decoration: BoxDecoration(color: done ? color : color.withOpacity(.12), shape: BoxShape.circle),
+            child: Center(child: done ? const Icon(Icons.check, color: Colors.white, size: 16) : Text('${index+1}', style: TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w700, color: color))),
           ),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(lesson.title,    style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.sm(context), fontWeight: FontWeight.w600, color: WaqtiColors.textDark)),
+            Text(lesson.title, style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.sm(context), fontWeight: FontWeight.w600, color: WaqtiColors.textDark)),
             Text(lesson.subtitle, style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.xs(context), color: WaqtiColors.textLight)),
           ])),
           if (done) Text('⭐' * stars, style: const TextStyle(fontSize: 12)),
