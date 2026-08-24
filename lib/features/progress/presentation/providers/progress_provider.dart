@@ -17,10 +17,13 @@ class ProgressNotifier extends AsyncNotifier<UserProgress> {
     int stars,
     int correct,
     int total,
-    List<String> mistakes,
+    [List<String> mistakes = const []],
   ) async {
+    final recordedMistakes = mistakes.isEmpty && correct < total
+        ? List<String>.filled(total - correct, 'lesson:$lessonId')
+        : mistakes;
     await ref.read(progressRepositoryProvider).saveLesson(
-      lessonId, stars, correct, total, mistakes,
+      lessonId, stars, correct, total, recordedMistakes,
     );
     ref.invalidateSelf();
   }
