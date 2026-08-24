@@ -1,4 +1,4 @@
-/// Progress entities — no Freezed, plain immutable Dart.
+// Progress entities — no Freezed, plain immutable Dart.
 
 class LessonProgress {
   const LessonProgress({
