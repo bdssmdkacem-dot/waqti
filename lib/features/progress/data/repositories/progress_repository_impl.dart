@@ -4,9 +4,7 @@ import '../../domain/entities/progress_entity.dart';
 import '../../domain/repositories/progress_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final progressRepositoryProvider = Provider<ProgressRepository>(
-  (ref) => SharedPrefsProgressRepository(),
-);
+final progressRepositoryProvider = Provider<ProgressRepository>((ref) => SharedPrefsProgressRepository());
 
 class SharedPrefsProgressRepository implements ProgressRepository {
   static const _key = 'waqti_progress_v3';
@@ -27,9 +25,7 @@ class SharedPrefsProgressRepository implements ProgressRepository {
           stars: (v['stars'] as int?) ?? 0,
           bestCorrect: (v['bestCorrect'] as int?) ?? 0,
           totalQuestions: (v['totalQuestions'] as int?) ?? 0,
-          completedAt: v['completedAt'] != null
-              ? DateTime.tryParse(v['completedAt'] as String)
-              : null,
+          completedAt: v['completedAt'] != null ? DateTime.tryParse(v['completedAt'] as String) : null,
         );
       }
       final rawErrors = (map['skillErrors'] as Map<String, dynamic>?) ?? {};
@@ -42,9 +38,7 @@ class SharedPrefsProgressRepository implements ProgressRepository {
         totalStars: (map['totalStars'] as int?) ?? 0,
         totalLessons: (map['totalLessons'] as int?) ?? 0,
         isPremium: (map['isPremium'] as bool?) ?? false,
-        lastPlayDate: map['lastPlayDate'] != null
-            ? DateTime.tryParse(map['lastPlayDate'] as String)
-            : null,
+        lastPlayDate: map['lastPlayDate'] != null ? DateTime.tryParse(map['lastPlayDate'] as String) : null,
         skillErrors: skillErrors,
       );
     } catch (_) {
@@ -58,14 +52,13 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     int stars,
     int correct,
     int total,
-    List<String> mistakes,
+    [List<String> mistakes = const []],
   ) async {
     var prog = await loadProgress();
     final prev = prog.lessons[lessonId];
     final prevStars = prev?.stars ?? 0;
     final prevBest = prev?.bestCorrect ?? 0;
     final isNew = prevStars == 0;
-
     final newStars = stars > prevStars ? stars : prevStars;
     final newBest = correct > prevBest ? correct : prevBest;
     int totalSt = prog.totalStars;
