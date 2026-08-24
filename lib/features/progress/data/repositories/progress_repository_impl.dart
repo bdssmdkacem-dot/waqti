@@ -52,7 +52,7 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     int stars,
     int correct,
     int total,
-    [List<String> mistakes = const []],
+    [List<String> mistakes = const []]
   ) async {
     var prog = await loadProgress();
     final prev = prog.lessons[lessonId];
@@ -63,8 +63,12 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     final newBest = correct > prevBest ? correct : prevBest;
     int totalSt = prog.totalStars;
     int totalLes = prog.totalLessons;
-    if (stars > prevStars) totalSt += stars - prevStars;
-    if (isNew) totalLes++;
+    if (stars > prevStars) {
+      totalSt += stars - prevStars;
+    }
+    if (isNew) {
+      totalLes++;
+    }
 
     final today = DateTime.now();
     var streak = prog.streakDays;
@@ -73,8 +77,11 @@ class SharedPrefsProgressRepository implements ProgressRepository {
       streak = 1;
     } else {
       final diff = today.difference(last).inDays;
-      if (diff == 1) streak++;
-      else if (diff > 1) streak = 1;
+      if (diff == 1) {
+        streak++;
+      } else if (diff > 1) {
+        streak = 1;
+      }
     }
 
     final errors = Map<String, int>.from(prog.skillErrors);
