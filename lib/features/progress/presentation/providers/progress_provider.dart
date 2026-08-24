@@ -17,7 +17,7 @@ class ProgressNotifier extends AsyncNotifier<UserProgress> {
     int stars,
     int correct,
     int total,
-    [List<String> mistakes = const []],
+    [List<String> mistakes = const []]
   ) async {
     final recordedMistakes = mistakes.isEmpty && correct < total
         ? List<String>.filled(total - correct, 'lesson:$lessonId')
