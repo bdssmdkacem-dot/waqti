@@ -21,6 +21,12 @@ class AdService extends ChangeNotifier {
   Timer? _retryTimer;
   bool _initialized = false;
 
+  // Show an interstitial only after every second completed lesson.
+  // This keeps the learning flow uninterrupted while still allowing
+  // monetization at a natural transition point.
+  int _lessonCompletionsSinceInterstitial = 0;
+  static const int _interstitialFrequency = 2;
+
   final Map<String, String> _errors = {};
 
   bool _homeBannerReady = false;
@@ -231,6 +237,18 @@ class AdService extends ChangeNotifier {
   }
 
   Future<void> onLessonComplete() async {
+    _lessonCompletionsSinceInterstitial++;
+
+    // Do not interrupt every lesson. Keep the first completion ad-free and
+    // show the next interstitial at a natural transition after lesson 2,
+    // then repeat every second completed lesson.
+    if (_lessonCompletionsSinceInterstitial < _interstitialFrequency) {
+      if (!_interstitialReady) loadInterstitial();
+      return;
+    }
+
+    _lessonCompletionsSinceInterstitial = 0;
+
     final ad = _interstitial;
     if (ad == null || !_interstitialReady) {
       loadInterstitial();
