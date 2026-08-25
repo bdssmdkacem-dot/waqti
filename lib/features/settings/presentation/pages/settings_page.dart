@@ -10,7 +10,7 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sound = ref.watch(soundServiceProvider);
-    final prog  = ref.watch(progressNotifierProvider).valueOrNull;
+    final prog = ref.watch(progressNotifierProvider).valueOrNull;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -19,9 +19,8 @@ class SettingsPage extends ConsumerWidget {
         body: ListView(
           padding: const EdgeInsets.all(WaqtiSpacing.md),
           children: [
-            // ── Sound ───────────────────────────────────────────
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SectionHeader(Icons.volume_up_rounded, 'الصوت'),
+              const _SectionHeader(Icons.volume_up_rounded, 'الصوت'),
               const SizedBox(height: WaqtiSpacing.md),
               ListenableBuilder(
                 listenable: sound,
@@ -36,7 +35,7 @@ class SettingsPage extends ConsumerWidget {
                     ])),
                     Switch.adaptive(
                       value: !sound.isMuted,
-                      activeColor: WaqtiColors.mint,
+                      activeThumbColor: WaqtiColors.mint,
                       onChanged: (_) => sound.toggleMute(),
                     ),
                   ]),
@@ -49,7 +48,7 @@ class SettingsPage extends ConsumerWidget {
                           value: sound.volume,
                           min: 0, max: 1, divisions: 10,
                           activeColor: WaqtiColors.primary,
-                          inactiveColor: WaqtiColors.primary.withOpacity(.2),
+                          inactiveColor: WaqtiColors.primary.withValues(alpha: .2),
                           onChanged: (v) => sound.setVolume(v),
                           onChangeEnd: (_) => sound.click(),
                         ),
@@ -63,12 +62,9 @@ class SettingsPage extends ConsumerWidget {
                 ]),
               ),
             ])),
-
             const SizedBox(height: WaqtiSpacing.md),
-
-            // ── Stats ────────────────────────────────────────────
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SectionHeader(Icons.bar_chart_rounded, 'إحصائياتي'),
+              const _SectionHeader(Icons.bar_chart_rounded, 'إحصائياتي'),
               const SizedBox(height: WaqtiSpacing.md),
               Row(children: [
                 _StatPill('🔥', '${prog?.streakDays ?? 0}', 'يوم متتالي'),
@@ -78,23 +74,17 @@ class SettingsPage extends ConsumerWidget {
                 _StatPill('📚', '${prog?.totalLessons ?? 0}', 'درس'),
               ]),
             ])),
-
             const SizedBox(height: WaqtiSpacing.md),
-
-            // ── App info ─────────────────────────────────────────
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SectionHeader(Icons.info_outline_rounded, 'عن التطبيق'),
+              const _SectionHeader(Icons.info_outline_rounded, 'عن التطبيق'),
               const SizedBox(height: WaqtiSpacing.md),
-              _InfoRow('الإصدار', '3.0.0'),
-              _InfoRow('المطوّر', 'Daryne'),
-              _InfoRow('البريد', 'support@waqti-app.com'),
+              const _InfoRow('الإصدار', '3.0.0'),
+              const _InfoRow('المطوّر', 'Daryne'),
+              const _InfoRow('البريد', 'support@waqti-app.com'),
             ])),
-
             const SizedBox(height: WaqtiSpacing.md),
-
-            // ── Reset ─────────────────────────────────────────────
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SectionHeader(Icons.warning_amber_rounded, 'منطقة الخطر', color: Colors.red),
+              const _SectionHeader(Icons.warning_amber_rounded, 'منطقة الخطر', color: Colors.red),
               const SizedBox(height: WaqtiSpacing.md),
               SizedBox(
                 width: double.infinity,
@@ -142,7 +132,7 @@ class _Card extends StatelessWidget {
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
       color: Colors.white, borderRadius: BorderRadius.circular(18),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 12, offset: const Offset(0,3))],
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .06), blurRadius: 12, offset: const Offset(0,3))],
     ),
     child: child,
   );
@@ -156,7 +146,7 @@ class _SectionHeader extends StatelessWidget {
     Container(
       width: 40, height: 40,
       decoration: BoxDecoration(
-        color: (color ?? WaqtiColors.primary).withOpacity(.12),
+        color: (color ?? WaqtiColors.primary).withValues(alpha: .12),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Icon(icon, color: color ?? WaqtiColors.primary, size: 22),
@@ -190,7 +180,7 @@ class _InfoRow extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(children: [
       Text('$label: ', style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, color: WaqtiColors.textLight)),
-      Text(value,      style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w600, color: WaqtiColors.textDark)),
+      Text(value, style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w600, color: WaqtiColors.textDark)),
     ]),
   );
 }
