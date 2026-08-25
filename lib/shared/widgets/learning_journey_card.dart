@@ -15,7 +15,7 @@ class LearningJourneyCard extends StatelessWidget {
     final safeTotal = total == 0 ? 1 : total;
     final pct = (completed / safeTotal).clamp(0.0, 1.0);
     final level = completed < 3 ? 1 : completed < 7 ? 2 : completed < 12 ? 3 : completed < 18 ? 4 : 5;
-    final titles = const ['بداية الرحلة', 'قارئ الساعة', 'خبير الدقائق', 'سيد الوقت', 'بطل الوقت'];
+    const titles = ['بداية الرحلة', 'قارئ الساعة', 'خبير الدقائق', 'سيد الوقت', 'بطل الوقت'];
     final nextGoal = level == 5 ? total : [3, 7, 12, 18, total][level - 1];
     final remaining = (nextGoal - completed).clamp(0, total);
     final weakest = progress?.weakestSkill;
