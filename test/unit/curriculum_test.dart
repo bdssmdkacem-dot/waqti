@@ -4,7 +4,7 @@ import 'package:waqti/features/curriculum/domain/entities/curriculum_entities.da
 import 'package:waqti/features/progress/domain/entities/progress_entity.dart';
 
 void main() {
-  final db = CurriculumDatasource.instance;
+  const db = CurriculumDatasource.instance;
 
   group('CurriculumDatasource', () {
     test('returns 13 units', () {
