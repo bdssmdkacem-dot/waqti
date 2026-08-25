@@ -9,8 +9,8 @@ class DigitalClock extends StatelessWidget {
     this.fontSize = 44,
   });
 
-  final int    hour, minute;
-  final int?   second;
+  final int hour, minute;
+  final int? second;
   final double fontSize;
 
   String get _display {
@@ -24,16 +24,13 @@ class DigitalClock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.symmetric(
-      horizontal: fontSize * .6,
-      vertical:   fontSize * .3,
-    ),
+    padding: EdgeInsets.symmetric(horizontal: fontSize * .6, vertical: fontSize * .3),
     decoration: BoxDecoration(
       color: const Color(0xFF0D1B2A),
       borderRadius: BorderRadius.circular(14),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(.3),
+          color: Colors.black.withValues(alpha: .3),
           blurRadius: 14,
           offset: const Offset(0, 4),
         ),
@@ -43,9 +40,9 @@ class DigitalClock extends StatelessWidget {
       _display,
       style: TextStyle(
         fontFamily: 'Courier New',
-        fontSize:   fontSize,
+        fontSize: fontSize,
         fontWeight: FontWeight.w800,
-        color:      const Color(0xFF4FC3F7),
+        color: const Color(0xFF4FC3F7),
         letterSpacing: 4,
       ),
     ),
@@ -80,12 +77,7 @@ class AmPmBadge extends StatelessWidget {
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
       child: Text(
         text,
-        style: TextStyle(
-          fontFamily: 'Cairo',
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+        style: TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }
