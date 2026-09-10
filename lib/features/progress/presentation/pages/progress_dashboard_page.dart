@@ -23,14 +23,12 @@ class ProgressDashboardPage extends ConsumerWidget {
       ...progress.questionCorrect.keys,
       ...progress.questionErrors.keys,
     };
-    final answeredQuestions = questionKeys.fold<int>(
-      0,
-      (sum, key) => sum + (progress.questionCorrect[key] ?? 0) + (progress.questionErrors[key] ?? 0),
-    );
-    final correctAnswers = progress.questionCorrect.values.fold<int>(0, (sum, value) => sum + value);
-    final accuracy = answeredQuestions == 0 ? 0.0 : correctAnswers / answeredQuestions;
+    final attempts = questionKeys.fold<int>(0, (sum, key) => sum + (progress.questionCorrect[key] ?? 0) + (progress.questionErrors[key] ?? 0));
+    final correct = progress.questionCorrect.values.fold<int>(0, (sum, value) => sum + value);
+    final accuracy = attempts == 0 ? 0.0 : correct / attempts;
     final weak = progress.weakestSkill;
     final weakErrors = weak == null ? 0 : progress.skillErrors[weak] ?? 0;
+    final remaining = (progress.dailyGoal - progress.dailyLessons).clamp(0, progress.dailyGoal);
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -42,14 +40,20 @@ class ProgressDashboardPage extends ConsumerWidget {
           foregroundColor: Colors.white,
         ),
         body: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
           children: [
-            _DailyGoalCard(progress.dailyLessons, progress.dailyGoal, progress.dailyGoalProgress, progress.dailyGoalComplete),
+            _DailyGoalCard(
+              done: progress.dailyLessons,
+              goal: progress.dailyGoal,
+              progress: progress.dailyGoalProgress,
+              complete: progress.dailyGoalComplete,
+              remaining: remaining,
+            ),
             const SizedBox(height: 14),
             Row(children: [
               Expanded(child: _MetricCard('⭐', '${progress.totalStars}', 'النجوم')),
               const SizedBox(width: 10),
-              Expanded(child: _MetricCard('🔥', '${progress.streakDays}', 'أيام متتالية')),
+              Expanded(child: _MetricCard('🔥', '${progress.streakDays}', 'السلسلة')),
               const SizedBox(width: 10),
               Expanded(child: _MetricCard('🎯', '${(accuracy * 100).round()}%', 'الدقة')),
             ]),
@@ -58,18 +62,18 @@ class ProgressDashboardPage extends ConsumerWidget {
               title: 'رحلة التعلّم',
               child: Column(children: [
                 _ProgressRow('الدروس المكتملة', completed, totalLessons),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 _ProgressRow('النجوم', progress.totalStars, totalLessons * 3),
               ]),
             ),
             const SizedBox(height: 14),
             _SectionCard(
-              title: '🧠 المهارة التي تحتاج تدريبًا',
+              title: '🧠 التدريب المقترح',
               child: weak == null
-                  ? const Text('لا توجد أخطاء مسجلة بعد. استمر في التعلّم!', style: _bodyStyle)
+                  ? const _EmptySkillState()
                   : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(_lessonTitle(units, weak), style: const TextStyle(fontFamily: 'Cairo', fontSize: 18, fontWeight: FontWeight.w800, color: WaqtiColors.textDark)),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 5),
                       Text('$weakErrors أخطاء تحتاج إلى مراجعة', style: _bodyStyle),
                       const SizedBox(height: 12),
                       SizedBox(width: double.infinity, child: ElevatedButton.icon(
@@ -82,7 +86,11 @@ class ProgressDashboardPage extends ConsumerWidget {
             const SizedBox(height: 14),
             _SectionCard(
               title: '🏆 مستواك',
-              child: Text(_levelText(completed, totalLessons, accuracy), style: const TextStyle(fontFamily: 'Cairo', fontSize: 16, fontWeight: FontWeight.w700, color: WaqtiColors.textDark)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_levelText(completed, totalLessons, accuracy), style: const TextStyle(fontFamily: 'Cairo', fontSize: 16, fontWeight: FontWeight.w700, color: WaqtiColors.textDark)),
+                const SizedBox(height: 6),
+                Text('${(completed / (totalLessons == 0 ? 1 : totalLessons) * 100).round()}% من المنهج مكتمل', style: _bodyStyle),
+              ]),
             ),
           ],
         ),
@@ -111,8 +119,8 @@ class ProgressDashboardPage extends ConsumerWidget {
 const _bodyStyle = TextStyle(fontFamily: 'Cairo', fontSize: 14, color: WaqtiColors.textLight);
 
 class _DailyGoalCard extends StatelessWidget {
-  const _DailyGoalCard(this.done, this.goal, this.progress, this.complete);
-  final int done, goal;
+  const _DailyGoalCard({required this.done, required this.goal, required this.progress, required this.complete, required this.remaining});
+  final int done, goal, remaining;
   final double progress;
   final bool complete;
 
@@ -122,7 +130,7 @@ class _DailyGoalCard extends StatelessWidget {
     decoration: BoxDecoration(
       gradient: const LinearGradient(colors: [WaqtiColors.primary, WaqtiColors.accent]),
       borderRadius: BorderRadius.circular(22),
-      boxShadow: [BoxShadow(color: WaqtiColors.primary.withOpacity(.18), blurRadius: 14, offset: const Offset(0, 5))],
+      boxShadow: [BoxShadow(color: WaqtiColors.primary.withValues(alpha: .18), blurRadius: 14, offset: const Offset(0, 5))],
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
@@ -134,9 +142,19 @@ class _DailyGoalCard extends StatelessWidget {
       const SizedBox(height: 12),
       ClipRRect(borderRadius: BorderRadius.circular(8), child: LinearProgressIndicator(value: progress, minHeight: 10, backgroundColor: Colors.white24, valueColor: const AlwaysStoppedAnimation(Colors.white))),
       const SizedBox(height: 8),
-      Text(complete ? 'رائع! عد غدًا وحافظ على السلسلة.' : 'أكمل $goal دروس اليوم لبناء عادة التعلّم.', style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, color: Colors.white)),
+      Text(complete ? 'رائع! عد غدًا وحافظ على السلسلة.' : 'بقي $remaining ${remaining == 1 ? 'درس واحد' : 'دروس'} لإكمال هدف اليوم.', style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, color: Colors.white)),
     ]),
   );
+}
+
+class _EmptySkillState extends StatelessWidget {
+  const _EmptySkillState();
+  @override
+  Widget build(BuildContext context) => const Row(children: [
+    Icon(Icons.verified_rounded, size: 28, color: WaqtiColors.primary),
+    SizedBox(width: 10),
+    Expanded(child: Text('لا توجد أخطاء تحتاج إلى مراجعة. استمر في التعلّم!', style: _bodyStyle)),
+  ]);
 }
 
 class _MetricCard extends StatelessWidget {
