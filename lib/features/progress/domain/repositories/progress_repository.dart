@@ -11,6 +11,12 @@ abstract interface class ProgressRepository {
     [List<String> mistakes = const [], List<String> correctQuestions = const []]
   );
 
+  Future<void> recordQuestionResult(
+    String questionKey,
+    String skillKey,
+    bool correct,
+  );
+
   Future<void> setPremium(bool value);
   Future<void> addBonusRetry();
   Future<bool> useBonusRetry();
