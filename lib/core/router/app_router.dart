@@ -36,7 +36,7 @@ GoRouter _buildRouter() => GoRouter(
       final args = state.extra as LessonRouteArgs;
       return _slide(state, LessonPage(unit: args.unit, lesson: args.lesson));
     }),
-    GoRoute(path: Routes.freePlay, pageBuilder: (ctx, state) => _slide(state, const FreePlayPage())),
+    GoRoute(path: Routes.freePlay, pageBuilder: (ctx, state) => _slide(state, FreePlayPage(smartReview: state.extra == true))),
     GoRoute(path: Routes.review, pageBuilder: (ctx, state) => _slide(state, const SmartReviewPage())),
     GoRoute(path: Routes.progress, pageBuilder: (ctx, state) => _slide(state, const ProgressDashboardPage())),
     GoRoute(path: Routes.settings, pageBuilder: (ctx, state) => _slide(state, const SettingsPage())),
