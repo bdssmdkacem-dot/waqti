@@ -18,7 +18,12 @@ class ProgressNotifier extends AsyncNotifier<UserProgress> {
     List<String> correctQuestions = const [],
   ]) async {
     await ref.read(progressRepositoryProvider).saveLesson(
-      lessonId, stars, correct, total, mistakes, correctQuestions,
+      lessonId,
+      stars,
+      correct,
+      total,
+      mistakes,
+      correctQuestions,
     );
     ref.invalidateSelf();
   }
