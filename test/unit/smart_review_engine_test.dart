@@ -100,7 +100,7 @@ void main() {
       },
       questionErrors: {
         'question:lesson-1:0': 1,
-        'question:lesson-lesson-2:0': 2,
+        'question:lesson-2:0': 2,
       },
     );
 
