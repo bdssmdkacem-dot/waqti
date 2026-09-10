@@ -1,0 +1,37 @@
+name: Patch Smart Review instrumentation
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, '[smart-review-patched]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch LessonPage
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/features/curriculum/presentation/pages/lesson_page.dart')
+          s = p.read_text()
+          old = """  void _onAnswer(bool ok) {\n    setState(() { answered = true; lastCorrect = ok; results[qi] = ok; if (ok) correct++; });\n    if (ok) _sound.correct(); else _sound.wrong();\n  }"""
+          new = """  void _onAnswer(bool ok) {\n    setState(() { answered = true; lastCorrect = ok; results[qi] = ok; if (ok) correct++; });\n    final questionKey = 'question:${widget.lesson.id}:$qi';\n    final skillKey = 'lesson:${widget.lesson.id}';\n    ref.read(progressNotifierProvider.notifier).recordQuestionResult(\n      questionKey: questionKey,\n      skillKey: skillKey,\n      correct: ok,\n    );\n    if (ok) _sound.correct(); else _sound.wrong();\n  }"""
+          if old not in s:
+              raise SystemExit('Expected _onAnswer block was not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/features/curriculum/presentation/pages/lesson_page.dart
+          git diff --cached --quiet && exit 0
+          git commit -m 'feat(review): record lesson question outcomes [smart-review-patched]'
+          git push
