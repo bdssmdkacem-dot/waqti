@@ -101,7 +101,7 @@ class SharedPrefsProgressRepository implements ProgressRepository {
 
     var dailyLessons = prog.dailyLessons;
     final dailyDate = prog.dailyGoalDate;
-    final sameDay = dailyDate != null && dailyDate!.year == now.year && dailyDate.month == now.month && dailyDate.day == now.day;
+    final sameDay = dailyDate != null && dailyDate.year == now.year && dailyDate.month == now.month && dailyDate.day == now.day;
     if (!sameDay) dailyLessons = 0;
     if (isNew) dailyLessons++;
 
