@@ -39,6 +39,7 @@ class UserProgress {
     this.isPremium = false,
     this.lastPlayDate,
     this.skillErrors = const {},
+    this.bonusRetries = 0,
   });
 
   final Map<String, LessonProgress> lessons;
@@ -48,6 +49,9 @@ class UserProgress {
 
   /// Cumulative mistakes by learning skill. Keys are stable internal IDs.
   final Map<String, int> skillErrors;
+
+  /// Bonus lesson retries earned from an optional rewarded ad.
+  final int bonusRetries;
 
   bool isLessonDone(String id) => lessons[id]?.isCompleted ?? false;
   int getLessonStars(String id) => lessons[id]?.stars ?? 0;
@@ -71,6 +75,7 @@ class UserProgress {
     bool? isPremium,
     DateTime? lastPlayDate,
     Map<String, int>? skillErrors,
+    int? bonusRetries,
   }) => UserProgress(
     lessons: lessons ?? this.lessons,
     streakDays: streakDays ?? this.streakDays,
@@ -79,5 +84,6 @@ class UserProgress {
     isPremium: isPremium ?? this.isPremium,
     lastPlayDate: lastPlayDate ?? this.lastPlayDate,
     skillErrors: skillErrors ?? this.skillErrors,
+    bonusRetries: bonusRetries ?? this.bonusRetries,
   );
 }
