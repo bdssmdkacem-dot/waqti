@@ -59,9 +59,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
   TimeQuestion? get _challengeQuestion {
     final lesson = _challengeLesson;
     final index = _challengeIndex;
-    if (lesson == null || index == null || index >= lesson.questions.length) {
-      return null;
-    }
+    if (lesson == null || index == null || index >= lesson.questions.length) return null;
     return lesson.questions[index];
   }
 
@@ -69,9 +67,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
     setState(() {
       _h = h;
       _m = m;
-      if (!_challengeAnswered) {
-        _challengeCorrect = null;
-      }
+      if (!_challengeAnswered) _challengeCorrect = null;
     });
     if (!_throttle) {
       _throttle = true;
@@ -93,7 +89,6 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
     final random = Random();
     final lesson = lessons[random.nextInt(lessons.length)];
     final index = random.nextInt(lesson.questions.length);
-    final question = lesson.questions[index];
 
     ref.read(soundServiceProvider).play(WaqtiSound.click);
     setState(() {
@@ -110,9 +105,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
     final question = _challengeQuestion;
     final lesson = _challengeLesson;
     final index = _challengeIndex;
-    if (question == null || lesson == null || index == null || _challengeAnswered) {
-      return;
-    }
+    if (question == null || lesson == null || index == null || _challengeAnswered) return;
 
     final ok = _h == question.hour && _m == question.minute;
     setState(() {
@@ -219,6 +212,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                     child: Column(
                       children: [
                         InteractiveClock(
+                          key: ValueKey('${_challengeLesson?.id}:$_challengeIndex'),
                           initialHour: _h,
                           initialMinute: _m,
                           size: clockSz,
