@@ -22,9 +22,9 @@ class SharedPrefsProgressRepository implements ProgressRepository {
         final v = e.value as Map<String, dynamic>;
         lessons[e.key] = LessonProgress(
           lessonId: e.key,
-          stars: (v['stars'] as int?) ?? 0,
-          bestCorrect: (v['bestCorrect'] as int?) ?? 0,
-          totalQuestions: (v['totalQuestions'] as int?) ?? 0,
+          stars: (v['stars'] as num?)?.toInt() ?? 0,
+          bestCorrect: (v['bestCorrect'] as num?)?.toInt() ?? 0,
+          totalQuestions: (v['totalQuestions'] as num?)?.toInt() ?? 0,
           completedAt: v['completedAt'] != null ? DateTime.tryParse(v['completedAt'] as String) : null,
         );
       }
@@ -34,19 +34,30 @@ class SharedPrefsProgressRepository implements ProgressRepository {
       }
       return UserProgress(
         lessons: lessons,
-        streakDays: (map['streakDays'] as int?) ?? 0,
-        totalStars: (map['totalStars'] as int?) ?? 0,
-        totalLessons: (map['totalLessons'] as int?) ?? 0,
+        streakDays: (map['streakDays'] as num?)?.toInt() ?? 0,
+        totalStars: (map['totalStars'] as num?)?.toInt() ?? 0,
+        totalLessons: (map['totalLessons'] as num?)?.toInt() ?? 0,
         isPremium: (map['isPremium'] as bool?) ?? false,
         lastPlayDate: map['lastPlayDate'] != null ? DateTime.tryParse(map['lastPlayDate'] as String) : null,
         skillErrors: ints('skillErrors'),
         questionErrors: ints('questionErrors'),
         questionCorrect: ints('questionCorrect'),
-        bonusRetries: (map['bonusRetries'] as int?) ?? 0,
+        bonusRetries: (map['bonusRetries'] as num?)?.toInt() ?? 0,
+        dailyGoal: (map['dailyGoal'] as num?)?.toInt() ?? 3,
+        dailyLessons: _today(map['dailyGoalDate']) ? (map['dailyLessons'] as num?)?.toInt() ?? 0 : 0,
+        dailyGoalDate: map['dailyGoalDate'] != null ? DateTime.tryParse(map['dailyGoalDate'] as String) : null,
       );
     } catch (_) {
       return const UserProgress();
     }
+  }
+
+  static bool _today(dynamic raw) {
+    if (raw is! String) return false;
+    final date = DateTime.tryParse(raw);
+    if (date == null) return false;
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month && date.day == now.day;
   }
 
   @override
@@ -73,9 +84,8 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     final today = DateTime(now.year, now.month, now.day);
     var streak = prog.streakDays;
     final last = prog.lastPlayDate;
-    if (last == null) {
-      streak = 1;
-    } else {
+    if (last == null) streak = 1;
+    else {
       final lastDay = DateTime(last.year, last.month, last.day);
       final diff = today.difference(lastDay).inDays;
       if (diff == 1) streak++;
@@ -88,6 +98,12 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     for (final id in mistakes) qErrors[id] = (qErrors[id] ?? 0) + 1;
     final qCorrect = Map<String, int>.from(prog.questionCorrect);
     for (final id in correctQuestions) qCorrect[id] = (qCorrect[id] ?? 0) + 1;
+
+    var dailyLessons = prog.dailyLessons;
+    final dailyDate = prog.dailyGoalDate;
+    final sameDay = dailyDate != null && dailyDate!.year == now.year && dailyDate.month == now.month && dailyDate.day == now.day;
+    if (!sameDay) dailyLessons = 0;
+    if (isNew) dailyLessons++;
 
     final updatedLessons = Map<String, LessonProgress>.from(prog.lessons)
       ..[lessonId] = LessonProgress(
@@ -107,6 +123,8 @@ class SharedPrefsProgressRepository implements ProgressRepository {
       skillErrors: errors,
       questionErrors: qErrors,
       questionCorrect: qCorrect,
+      dailyLessons: dailyLessons,
+      dailyGoalDate: now,
     );
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, json.encode(_toMap(prog)));
@@ -120,12 +138,8 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     final skillErrors = Map<String, int>.from(prog.skillErrors);
     if (correct) {
       qCorrect[questionKey] = (qCorrect[questionKey] ?? 0) + 1;
-      if ((qErrors[questionKey] ?? 0) > 0) {
-        qErrors[questionKey] = qErrors[questionKey]! - 1;
-      }
-      if ((skillErrors[skillKey] ?? 0) > 0) {
-        skillErrors[skillKey] = skillErrors[skillKey]! - 1;
-      }
+      if ((qErrors[questionKey] ?? 0) > 0) qErrors[questionKey] = qErrors[questionKey]! - 1;
+      if ((skillErrors[skillKey] ?? 0) > 0) skillErrors[skillKey] = skillErrors[skillKey]! - 1;
     } else {
       qErrors[questionKey] = (qErrors[questionKey] ?? 0) + 1;
       skillErrors[skillKey] = (skillErrors[skillKey] ?? 0) + 1;
@@ -180,6 +194,9 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     'questionErrors': prog.questionErrors,
     'questionCorrect': prog.questionCorrect,
     'bonusRetries': prog.bonusRetries,
+    'dailyGoal': prog.dailyGoal,
+    'dailyLessons': prog.dailyLessons,
+    'dailyGoalDate': prog.dailyGoalDate?.toIso8601String(),
     'lessons': {
       for (final entry in prog.lessons.entries)
         entry.key: {
