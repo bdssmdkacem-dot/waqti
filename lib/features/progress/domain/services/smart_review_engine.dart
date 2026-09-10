@@ -38,7 +38,7 @@ class SmartReviewEngine {
       for (final lesson in unit.lessons) {
         final skillKey = SmartReviewEngine.skillKey(lesson.id);
         final skillErrors = progress.skillErrors[skillKey] ?? 0;
-        for (var i = 0; i < lesson.totalQuestions; i++) {
+        for (var i = 0; i < lesson.questions.length; i++) {
           final key = questionKey(lesson.id, i);
           final errors = progress.questionErrors[key] ?? 0;
           final correct = progress.questionCorrect[key] ?? 0;
