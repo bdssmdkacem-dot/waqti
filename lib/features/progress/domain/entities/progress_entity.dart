@@ -62,6 +62,15 @@ class UserProgress {
     return skillErrors.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
 
+  /// The first lesson is unlocked. Every later lesson requires the
+  /// immediately preceding lesson to be completed. This prevents children
+  /// from skipping the intended learning sequence.
+  bool isLessonUnlocked(List<String> lessonIds, int lessonIndex) {
+    if (lessonIndex <= 0) return true;
+    if (lessonIndex >= lessonIds.length) return false;
+    return isLessonDone(lessonIds[lessonIndex - 1]);
+  }
+
   bool isUnitUnlocked(int unitIndex, List<String> prevLessonIds) {
     if (unitIndex == 0) return true;
     return prevLessonIds.every(isLessonDone);
