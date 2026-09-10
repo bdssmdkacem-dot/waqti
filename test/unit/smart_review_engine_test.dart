@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:waqti/features/curriculum/domain/entities/curriculum_entities.dart';
 import 'package:waqti/features/progress/domain/entities/progress_entity.dart';
