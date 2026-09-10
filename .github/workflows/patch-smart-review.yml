@@ -18,13 +18,25 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path('lib/features/curriculum/presentation/pages/lesson_page.dart')
           s = p.read_text()
-          old = """  void _onAnswer(bool ok) {\n    setState(() { answered = true; lastCorrect = ok; results[qi] = ok; if (ok) correct++; });\n    if (ok) _sound.correct(); else _sound.wrong();\n  }"""
-          new = """  void _onAnswer(bool ok) {\n    setState(() { answered = true; lastCorrect = ok; results[qi] = ok; if (ok) correct++; });\n    final questionKey = 'question:${widget.lesson.id}:$qi';\n    final skillKey = 'lesson:${widget.lesson.id}';\n    ref.read(progressNotifierProvider.notifier).recordQuestionResult(\n      questionKey: questionKey,\n      skillKey: skillKey,\n      correct: ok,\n    );\n    if (ok) _sound.correct(); else _sound.wrong();\n  }"""
-          if old not in s:
-              raise SystemExit('Expected _onAnswer block was not found')
-          p.write_text(s.replace(old, new, 1))
+          pattern = r"  void _onAnswer\(bool ok\) \{.*?\n  \}"
+          new = '''  void _onAnswer(bool ok) {
+            setState(() { answered = true; lastCorrect = ok; results[qi] = ok; if (ok) correct++; });
+            final questionKey = 'question:${widget.lesson.id}:$qi';
+            final skillKey = 'lesson:${widget.lesson.id}';
+            ref.read(progressNotifierProvider.notifier).recordQuestionResult(
+              questionKey: questionKey,
+              skillKey: skillKey,
+              correct: ok,
+            );
+            if (ok) _sound.correct(); else _sound.wrong();
+          }'''
+          patched, count = re.subn(pattern, new, s, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'Expected one _onAnswer block, found {count}')
+          p.write_text(patched)
           PY
       - name: Commit patch
         shell: bash
