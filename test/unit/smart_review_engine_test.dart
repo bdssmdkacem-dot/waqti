@@ -91,4 +91,111 @@ void main() {
 
     expect(result, isEmpty);
   });
+
+  test('rebuilds an adaptive session after a correct answer', () {
+    final before = UserProgress(
+      skillErrors: {
+        'lesson:lesson-1': 1,
+        'lesson:lesson-2': 2,
+      },
+      questionErrors: {
+        'question:lesson-1:0': 1,
+        'question:lesson-lesson-2:0': 2,
+      },
+    );
+
+    final firstSession = const SmartReviewEngine().buildSession(
+      units: [unit],
+      progress: before,
+    );
+
+    expect(firstSession.first.lesson.id, 'lesson-2');
+
+    final after = UserProgress(
+      skillErrors: {
+        'lesson:lesson-1': 1,
+        'lesson:lesson-2': 1,
+      },
+      questionErrors: {
+        'question:lesson-1:0': 1,
+        'question:lesson-2:0': 1,
+      },
+      questionCorrect: {
+        'question:lesson-2:0': 1,
+      },
+    );
+
+    final nextSession = const SmartReviewEngine().buildSession(
+      units: [unit],
+      progress: after,
+    );
+
+    expect(nextSession.first.lesson.id, 'lesson-1');
+    expect(nextSession.first.questionIndex, 0);
+  });
+
+  test('moves to the next skill when the current skill is mastered', () {
+    final progress = UserProgress(
+      skillErrors: {
+        'lesson:lesson-1': 1,
+        'lesson:lesson-2': 2,
+      },
+      questionErrors: {
+        'question:lesson-1:0': 1,
+        'question:lesson-2:0': 2,
+      },
+    );
+
+    final afterFirstCorrect = UserProgress(
+      skillErrors: {
+        'lesson:lesson-1': 1,
+        'lesson:lesson-2': 1,
+      },
+      questionErrors: {
+        'question:lesson-1:0': 1,
+        'question:lesson-2:0': 1,
+      },
+      questionCorrect: {
+        'question:lesson-2:0': 1,
+      },
+    );
+
+    final afterSecondCorrect = UserProgress(
+      skillErrors: {
+        'lesson:lesson-1': 1,
+        'lesson:lesson-2': 0,
+      },
+      questionErrors: {
+        'question:lesson-1:0': 1,
+        'question:lesson-2:0': 0,
+      },
+      questionCorrect: {
+        'question:lesson-2:0': 2,
+      },
+    );
+
+    final engine = const SmartReviewEngine();
+    expect(engine.buildSession(units: [unit], progress: progress).first.lesson.id, 'lesson-2');
+    expect(engine.buildSession(units: [unit], progress: afterFirstCorrect).first.lesson.id, 'lesson-1');
+    expect(engine.buildSession(units: [unit], progress: afterSecondCorrect).single.lesson.id, 'lesson-1');
+  });
+
+  test('never returns duplicate question keys in one session', () {
+    final progress = UserProgress(
+      skillErrors: {'lesson:lesson-1': 10},
+      questionErrors: {
+        'question:lesson-1:0': 2,
+        'question:lesson-1:1': 2,
+        'question:lesson-1:2': 2,
+      },
+    );
+
+    final result = const SmartReviewEngine().buildSession(
+      units: [unit],
+      progress: progress,
+    );
+
+    final keys = result.map((candidate) => candidate.questionKey).toSet();
+    expect(keys.length, result.length);
+  });
 }
