@@ -19,8 +19,16 @@ class ProgressDashboardPage extends ConsumerWidget {
 
     final totalLessons = units.fold<int>(0, (sum, u) => sum + u.lessons.length);
     final completed = progress.lessons.values.where((l) => l.isCompleted).length;
-    final accuracyValues = progress.lessons.values.where((l) => l.totalQuestions > 0).map((l) => l.accuracy);
-    final accuracy = accuracyValues.isEmpty ? 0.0 : accuracyValues.reduce((a, b) => a + b) / accuracyValues.length;
+    final questionKeys = <String>{
+      ...progress.questionCorrect.keys,
+      ...progress.questionErrors.keys,
+    };
+    final answeredQuestions = questionKeys.fold<int>(
+      0,
+      (sum, key) => sum + (progress.questionCorrect[key] ?? 0) + (progress.questionErrors[key] ?? 0),
+    );
+    final correctAnswers = progress.questionCorrect.values.fold<int>(0, (sum, value) => sum + value);
+    final accuracy = answeredQuestions == 0 ? 0.0 : correctAnswers / answeredQuestions;
     final weak = progress.weakestSkill;
     final weakErrors = weak == null ? 0 : progress.skillErrors[weak] ?? 0;
 
