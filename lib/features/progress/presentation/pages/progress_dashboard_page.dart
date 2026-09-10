@@ -137,7 +137,7 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: WaqtiColors.border)),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE0E0E0))),
     child: Column(children: [Text(icon, style: const TextStyle(fontSize: 24)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontFamily: 'Cairo', fontSize: 18, fontWeight: FontWeight.w800, color: WaqtiColors.textDark)), Text(label, style: _bodyStyle.copyWith(fontSize: 11))]),
   );
 }
@@ -149,7 +149,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: WaqtiColors.border)),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE0E0E0))),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontFamily: 'Cairo', fontSize: 17, fontWeight: FontWeight.w800, color: WaqtiColors.textDark)), const SizedBox(height: 14), child]),
   );
 }
@@ -164,7 +164,7 @@ class _ProgressRow extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [Expanded(child: Text(label, style: _bodyStyle)), Text('$value / $total', style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700, color: WaqtiColors.textDark))]),
       const SizedBox(height: 6),
-      ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: pct, minHeight: 7, backgroundColor: WaqtiColors.border)),
+      ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: pct, minHeight: 7, backgroundColor: const Color(0xFFE0E0E0))),
     ]);
   }
 }
