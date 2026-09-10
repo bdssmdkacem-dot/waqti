@@ -28,6 +28,17 @@ class ProgressNotifier extends AsyncNotifier<UserProgress> {
     ref.invalidateSelf();
   }
 
+  Future<void> addBonusRetry() async {
+    await ref.read(progressRepositoryProvider).addBonusRetry();
+    ref.invalidateSelf();
+  }
+
+  Future<bool> useBonusRetry() async {
+    final used = await ref.read(progressRepositoryProvider).useBonusRetry();
+    if (used) ref.invalidateSelf();
+    return used;
+  }
+
   Future<void> setPremium(bool value) async {
     await ref.read(progressRepositoryProvider).setPremium(value);
     ref.invalidateSelf();
