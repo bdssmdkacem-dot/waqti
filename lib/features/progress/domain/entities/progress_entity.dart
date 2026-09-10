@@ -42,6 +42,9 @@ class UserProgress {
     this.questionErrors = const {},
     this.questionCorrect = const {},
     this.bonusRetries = 0,
+    this.dailyGoal = 3,
+    this.dailyLessons = 0,
+    this.dailyGoalDate,
   });
 
   final Map<String, LessonProgress> lessons;
@@ -52,6 +55,8 @@ class UserProgress {
   final Map<String, int> questionErrors;
   final Map<String, int> questionCorrect;
   final int bonusRetries;
+  final int dailyGoal, dailyLessons;
+  final DateTime? dailyGoalDate;
 
   bool isLessonDone(String id) => lessons[id]?.isCompleted ?? false;
   int getLessonStars(String id) => lessons[id]?.stars ?? 0;
@@ -60,6 +65,9 @@ class UserProgress {
     if (skillErrors.isEmpty) return null;
     return skillErrors.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
+
+  double get dailyGoalProgress => dailyGoal <= 0 ? 1 : (dailyLessons / dailyGoal).clamp(0.0, 1.0);
+  bool get dailyGoalComplete => dailyLessons >= dailyGoal;
 
   bool isLessonUnlocked(List<String> lessonIds, int lessonIndex) {
     if (lessonIndex <= 0) return true;
@@ -83,6 +91,9 @@ class UserProgress {
     Map<String, int>? questionErrors,
     Map<String, int>? questionCorrect,
     int? bonusRetries,
+    int? dailyGoal,
+    int? dailyLessons,
+    DateTime? dailyGoalDate,
   }) => UserProgress(
     lessons: lessons ?? this.lessons,
     streakDays: streakDays ?? this.streakDays,
@@ -94,5 +105,8 @@ class UserProgress {
     questionErrors: questionErrors ?? this.questionErrors,
     questionCorrect: questionCorrect ?? this.questionCorrect,
     bonusRetries: bonusRetries ?? this.bonusRetries,
+    dailyGoal: dailyGoal ?? this.dailyGoal,
+    dailyLessons: dailyLessons ?? this.dailyLessons,
+    dailyGoalDate: dailyGoalDate ?? this.dailyGoalDate,
   );
 }
