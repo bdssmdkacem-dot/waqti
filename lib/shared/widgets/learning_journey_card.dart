@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/curriculum/domain/entities/curriculum_entities.dart';
 import '../../features/progress/domain/entities/progress_entity.dart';
@@ -59,6 +60,16 @@ class LearningJourneyCard extends StatelessWidget {
         if (weakLabel != null) ...[
           const SizedBox(height: 8),
           Text('💡 ركّز قليلًا على: $weakLabel', style: const TextStyle(fontFamily: 'Cairo', fontSize: 11, color: Colors.white70)),
+          const SizedBox(height: 10),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: () => context.push('/review'),
+              icon: const Icon(Icons.auto_awesome, size: 18, color: WaqtiColors.accent),
+              label: const Text('ابدأ المراجعة الذكية', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800, color: Colors.white)),
+              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5)),
+            ),
+          ),
         ],
       ]),
     );
