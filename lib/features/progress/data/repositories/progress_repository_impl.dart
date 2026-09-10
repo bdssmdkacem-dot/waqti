@@ -70,18 +70,24 @@ class SharedPrefsProgressRepository implements ProgressRepository {
       totalLes++;
     }
 
-    final today = DateTime.now();
+    // Streaks are based on calendar days, not elapsed 24-hour periods.
+    // Example: playing at 23:30 and again at 08:00 the next morning
+    // must count as two consecutive days.
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     var streak = prog.streakDays;
     final last = prog.lastPlayDate;
     if (last == null) {
       streak = 1;
     } else {
-      final diff = today.difference(last).inDays;
+      final lastDay = DateTime(last.year, last.month, last.day);
+      final diff = today.difference(lastDay).inDays;
       if (diff == 1) {
         streak++;
       } else if (diff > 1) {
         streak = 1;
       }
+      // diff == 0: replaying on the same day does not increase the streak.
     }
 
     final errors = Map<String, int>.from(prog.skillErrors);
@@ -95,7 +101,7 @@ class SharedPrefsProgressRepository implements ProgressRepository {
         stars: newStars,
         bestCorrect: newBest,
         totalQuestions: total,
-        completedAt: prev?.completedAt ?? today,
+        completedAt: prev?.completedAt ?? now,
       );
 
     prog = prog.copyWith(
@@ -103,7 +109,7 @@ class SharedPrefsProgressRepository implements ProgressRepository {
       streakDays: streak,
       totalStars: totalSt,
       totalLessons: totalLes,
-      lastPlayDate: today,
+      lastPlayDate: now,
       skillErrors: errors,
     );
 
