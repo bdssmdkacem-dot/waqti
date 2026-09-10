@@ -40,6 +40,7 @@ class SharedPrefsProgressRepository implements ProgressRepository {
         isPremium: (map['isPremium'] as bool?) ?? false,
         lastPlayDate: map['lastPlayDate'] != null ? DateTime.tryParse(map['lastPlayDate'] as String) : null,
         skillErrors: skillErrors,
+        bonusRetries: (map['bonusRetries'] as int?) ?? 0,
       );
     } catch (_) {
       return const UserProgress();
@@ -63,16 +64,9 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     final newBest = correct > prevBest ? correct : prevBest;
     int totalSt = prog.totalStars;
     int totalLes = prog.totalLessons;
-    if (stars > prevStars) {
-      totalSt += stars - prevStars;
-    }
-    if (isNew) {
-      totalLes++;
-    }
+    if (stars > prevStars) totalSt += stars - prevStars;
+    if (isNew) totalLes++;
 
-    // Streaks are based on calendar days, not elapsed 24-hour periods.
-    // Example: playing at 23:30 and again at 08:00 the next morning
-    // must count as two consecutive days.
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     var streak = prog.streakDays;
@@ -82,18 +76,12 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     } else {
       final lastDay = DateTime(last.year, last.month, last.day);
       final diff = today.difference(lastDay).inDays;
-      if (diff == 1) {
-        streak++;
-      } else if (diff > 1) {
-        streak = 1;
-      }
-      // diff == 0: replaying on the same day does not increase the streak.
+      if (diff == 1) streak++;
+      else if (diff > 1) streak = 1;
     }
 
     final errors = Map<String, int>.from(prog.skillErrors);
-    for (final skill in mistakes) {
-      errors[skill] = (errors[skill] ?? 0) + 1;
-    }
+    for (final skill in mistakes) errors[skill] = (errors[skill] ?? 0) + 1;
 
     final updatedLessons = Map<String, LessonProgress>.from(prog.lessons)
       ..[lessonId] = LessonProgress(
@@ -126,6 +114,23 @@ class SharedPrefsProgressRepository implements ProgressRepository {
   }
 
   @override
+  Future<void> addBonusRetry() async {
+    var prog = await loadProgress();
+    prog = prog.copyWith(bonusRetries: prog.bonusRetries + 1);
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_key, json.encode(_toMap(prog)));
+  }
+
+  @override
+  Future<bool> useBonusRetry() async {
+    final prog = await loadProgress();
+    if (prog.bonusRetries <= 0) return false;
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_key, json.encode(_toMap(prog.copyWith(bonusRetries: prog.bonusRetries - 1))));
+    return true;
+  }
+
+  @override
   Future<void> reset() async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_key);
@@ -138,6 +143,7 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     'isPremium': prog.isPremium,
     'lastPlayDate': prog.lastPlayDate?.toIso8601String(),
     'skillErrors': prog.skillErrors,
+    'bonusRetries': prog.bonusRetries,
     'lessons': {
       for (final e in prog.lessons.entries)
         e.key: {
