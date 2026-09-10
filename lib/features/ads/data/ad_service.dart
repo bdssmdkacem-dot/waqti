@@ -21,9 +21,6 @@ class AdService extends ChangeNotifier {
   Timer? _retryTimer;
   bool _initialized = false;
 
-  // Show an interstitial only after every second completed lesson.
-  // This keeps the learning flow uninterrupted while still allowing
-  // monetization at a natural transition point.
   int _lessonCompletionsSinceInterstitial = 0;
   static const int _interstitialFrequency = 2;
 
@@ -75,9 +72,6 @@ class AdService extends ChangeNotifier {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // Waqti is configured as a mixed-audience app. Do not force every user
-    // to be treated as a child or under the age of consent. Those flags must
-    // only be set when the actual user's applicable status is known.
     await MobileAds.instance.updateRequestConfiguration(
       RequestConfiguration(
         maxAdContentRating: MaxAdContentRating.g,
@@ -194,7 +188,7 @@ class AdService extends ChangeNotifier {
     );
   }
 
-  void loadRewarded() {
+  Future<void> loadRewarded() async {
     _rewarded?.dispose();
     _rewarded = null;
     _rewardedReady = false;
@@ -215,7 +209,7 @@ class AdService extends ChangeNotifier {
     );
   }
 
-  void loadRewardedHint() {
+  Future<void> loadRewardedHint() async {
     _rewardedHint?.dispose();
     _rewardedHint = null;
     _rewardedHintReady = false;
@@ -238,10 +232,6 @@ class AdService extends ChangeNotifier {
 
   Future<void> onLessonComplete() async {
     _lessonCompletionsSinceInterstitial++;
-
-    // Do not interrupt every lesson. Keep the first completion ad-free and
-    // show the next interstitial at a natural transition after lesson 2,
-    // then repeat every second completed lesson.
     if (_lessonCompletionsSinceInterstitial < _interstitialFrequency) {
       if (!_interstitialReady) loadInterstitial();
       return;
@@ -276,7 +266,7 @@ class AdService extends ChangeNotifier {
   }) async {
     final ad = _rewarded;
     if (ad == null || !_rewardedReady) {
-      loadRewarded();
+      await loadRewarded();
       return false;
     }
 
@@ -306,7 +296,7 @@ class AdService extends ChangeNotifier {
   }) async {
     final ad = _rewardedHint;
     if (ad == null || !_rewardedHintReady) {
-      loadRewardedHint();
+      await loadRewardedHint();
       return false;
     }
 
