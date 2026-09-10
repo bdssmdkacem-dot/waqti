@@ -67,6 +67,13 @@ class _LessonPageState extends ConsumerState<LessonPage> {
 
   void _onAnswer(bool ok) {
     setState(() { answered = true; lastCorrect = ok; results[qi] = ok; if (ok) correct++; });
+    final questionKey = 'question:${widget.lesson.id}:$qi';
+    final skillKey = 'lesson:${widget.lesson.id}';
+    ref.read(progressNotifierProvider.notifier).recordQuestionResult(
+      questionKey: questionKey,
+      skillKey: skillKey,
+      correct: ok,
+    );
     if (ok) _sound.correct(); else _sound.wrong();
   }
 
