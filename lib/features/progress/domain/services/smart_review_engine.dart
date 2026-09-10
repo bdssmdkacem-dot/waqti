@@ -8,6 +8,7 @@ class ReviewCandidate {
     required this.questionKey,
     required this.errorCount,
     required this.correctCount,
+    required this.skillErrorCount,
   });
 
   final WaqtiLesson lesson;
@@ -15,10 +16,13 @@ class ReviewCandidate {
   final String questionKey;
   final int errorCount;
   final int correctCount;
+  final int skillErrorCount;
 
   double get mastery => correctCount + errorCount == 0
       ? 0
       : correctCount / (correctCount + errorCount);
+
+  bool get mastered => mastery >= 0.8 && errorCount == 0;
 }
 
 class SmartReviewEngine {
@@ -32,23 +36,29 @@ class SmartReviewEngine {
     final candidates = <ReviewCandidate>[];
     for (final unit in units) {
       for (final lesson in unit.lessons) {
+        final skillKey = SmartReviewEngine.skillKey(lesson.id);
+        final skillErrors = progress.skillErrors[skillKey] ?? 0;
         for (var i = 0; i < lesson.totalQuestions; i++) {
           final key = questionKey(lesson.id, i);
           final errors = progress.questionErrors[key] ?? 0;
           final correct = progress.questionCorrect[key] ?? 0;
           if (errors == 0) continue;
-          candidates.add(ReviewCandidate(
+          final candidate = ReviewCandidate(
             lesson: lesson,
             questionIndex: i,
             questionKey: key,
             errorCount: errors,
             correctCount: correct,
-          ));
+            skillErrorCount: skillErrors,
+          );
+          if (!candidate.mastered) candidates.add(candidate);
         }
       }
     }
 
     candidates.sort((a, b) {
+      final skillCompare = b.skillErrorCount.compareTo(a.skillErrorCount);
+      if (skillCompare != 0) return skillCompare;
       final errorCompare = b.errorCount.compareTo(a.errorCount);
       if (errorCompare != 0) return errorCompare;
       final masteryCompare = a.mastery.compareTo(b.mastery);
