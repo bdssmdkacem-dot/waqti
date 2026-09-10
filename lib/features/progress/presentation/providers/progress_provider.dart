@@ -28,6 +28,19 @@ class ProgressNotifier extends AsyncNotifier<UserProgress> {
     ref.invalidateSelf();
   }
 
+  Future<void> recordQuestionResult({
+    required String questionKey,
+    required String skillKey,
+    required bool correct,
+  }) async {
+    await ref.read(progressRepositoryProvider).recordQuestionResult(
+      questionKey,
+      skillKey,
+      correct,
+    );
+    ref.invalidateSelf();
+  }
+
   Future<void> addBonusRetry() async {
     await ref.read(progressRepositoryProvider).addBonusRetry();
     ref.invalidateSelf();
