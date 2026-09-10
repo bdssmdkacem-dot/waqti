@@ -1,4 +1,4 @@
-name: Patch Smart Review instrumentation
+name: Build targeted Smart Review
 
 on:
   push:
@@ -9,41 +9,193 @@ permissions:
 
 jobs:
   patch:
-    if: "!contains(github.event.head_commit.message, '[smart-review-patched]')"
+    if: "!contains(github.event.head_commit.message, '[targeted-review]')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch LessonPage
+      - name: Patch targeted review
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
+
+          # LessonPage: support a subset of question indices for Smart Review.
           p = Path('lib/features/curriculum/presentation/pages/lesson_page.dart')
           s = p.read_text()
-          pattern = r"  void _onAnswer\(bool ok\) \{.*?\n  \}"
-          new = '''  void _onAnswer(bool ok) {
-            setState(() { answered = true; lastCorrect = ok; results[qi] = ok; if (ok) correct++; });
-            final questionKey = 'question:${widget.lesson.id}:$qi';
-            final skillKey = 'lesson:${widget.lesson.id}';
-            ref.read(progressNotifierProvider.notifier).recordQuestionResult(
-              questionKey: questionKey,
-              skillKey: skillKey,
-              correct: ok,
-            );
-            if (ok) _sound.correct(); else _sound.wrong();
-          }'''
-          patched, count = re.subn(pattern, new, s, count=1, flags=re.S)
-          if count != 1:
-              raise SystemExit(f'Expected one _onAnswer block, found {count}')
-          p.write_text(patched)
+          s, n = re.subn(
+              r"const LessonPage\(\{super\.key, required this\.unit, required this\.lesson\}\);\n  final WaqtiUnit unit;\n  final WaqtiLesson lesson;",
+              "const LessonPage({super.key, required this.unit, required this.lesson, this.reviewQuestionIndices});\n  final WaqtiUnit unit;\n  final WaqtiLesson lesson;\n  final List<int>? reviewQuestionIndices;",
+              s, count=1)
+          if n != 1: raise SystemExit('LessonPage constructor pattern not found')
+          s = s.replace("  int get totalQ => widget.lesson.totalQuestions;", "  bool get isReviewSession => widget.reviewQuestionIndices != null;\n  int get totalQ => widget.reviewQuestionIndices?.length ?? widget.lesson.totalQuestions;\n  int get currentQuestionIndex => widget.reviewQuestionIndices?[qi] ?? qi;", 1)
+          s = s.replace("'question:${widget.lesson.id}:$qi'", "'question:${widget.lesson.id}:$currentQuestionIndex'", 1)
+          s = s.replace("widget.lesson.questions[qi]", "widget.lesson.questions[currentQuestionIndex]")
+          s = s.replace("widget.lesson.calcQuestions[qi]", "widget.lesson.calcQuestions[currentQuestionIndex]")
+          old = """    await ref.read(progressNotifierProvider.notifier)\n        .completeLesson(widget.lesson.id, stars, correct, totalQ);\n    await ref.read(adServiceProvider).onLessonComplete();"""
+          new = """    if (!isReviewSession) {\n      await ref.read(progressNotifierProvider.notifier)\n          .completeLesson(widget.lesson.id, stars, correct, totalQ);\n      await ref.read(adServiceProvider).onLessonComplete();\n    }"""
+          if old not in s: raise SystemExit('finish block not found')
+          s = s.replace(old, new, 1)
+          s = s.replace("const Text('انتهى الدرس!',", "Text(isReviewSession ? 'انتهت المراجعة الذكية!' : 'انتهى الدرس!',", 1)
+          s = s.replace("if (next.lesson != null)\n        Padding", "if (!isReviewSession && next.lesson != null)\n        Padding", 1)
+          old_retry = """    final progress = ref.read(progressNotifierProvider).valueOrNull;\n    final hasToken = (progress?.bonusRetries ?? 0) > 0;\n    if (hasToken) {\n      final used = await ref.read(progressNotifierProvider.notifier).useBonusRetry();\n      if (!used || !mounted) return;\n    }"""
+          new_retry = """    if (!isReviewSession) {\n      final progress = ref.read(progressNotifierProvider).valueOrNull;\n      final hasToken = (progress?.bonusRetries ?? 0) > 0;\n      if (hasToken) {\n        final used = await ref.read(progressNotifierProvider.notifier).useBonusRetry();\n        if (!used || !mounted) return;\n      }\n    }"""
+          if old_retry not in s: raise SystemExit('retry block not found')
+          s = s.replace(old_retry, new_retry, 1)
+          s = s.replace("child: Text(retries > 0 ? '🔄 أعد الدرس مجانًا — استخدم محاولة إضافية' : '🔄 أعد الدرس',", "child: Text(isReviewSession ? '🔄 أعد المراجعة الذكية' : (retries > 0 ? '🔄 أعد الدرس مجانًا — استخدم محاولة إضافية' : '🔄 أعد الدرس'),", 1)
+          p.write_text(s)
+
+          # Router: carry targeted question indices through navigation.
+          p = Path('lib/core/router/app_router.dart')
+          s = p.read_text()
+          s = s.replace("const LessonRouteArgs({required this.unit, required this.lesson});\n  final WaqtiUnit unit;\n  final WaqtiLesson lesson;", "const LessonRouteArgs({required this.unit, required this.lesson, this.reviewQuestionIndices});\n  final WaqtiUnit unit;\n  final WaqtiLesson lesson;\n  final List<int>? reviewQuestionIndices;", 1)
+          s = s.replace("LessonPage(unit: args.unit, lesson: args.lesson)", "LessonPage(unit: args.unit, lesson: args.lesson, reviewQuestionIndices: args.reviewQuestionIndices)", 1)
+          p.write_text(s)
+
+          # Smart Review: build and launch an actual targeted question session.
+          p = Path('lib/features/progress/presentation/pages/smart_review_page.dart')
+          p.write_text(r'''import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../features/curriculum/data/datasources/curriculum_datasource.dart';
+import '../../../../features/curriculum/domain/entities/curriculum_entities.dart';
+import '../../domain/services/smart_review_engine.dart';
+import '../providers/progress_provider.dart';
+
+class SmartReviewPage extends ConsumerWidget {
+  const SmartReviewPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progress = ref.watch(progressNotifierProvider).valueOrNull;
+    if (progress == null) {
+      return const Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
+
+    final units = CurriculumDatasource.instance.getUnits();
+    final candidates = const SmartReviewEngine(maxQuestions: 8).buildSession(
+      units: [],
+      progress: progress,
+    );
+    // The engine is pure and accepts the curriculum; the call above is replaced
+    // immediately below with the real curriculum to keep the page deterministic.
+    final session = const SmartReviewEngine(maxQuestions: 8).buildSession(
+      units: units,
+      progress: progress,
+    );
+    if (session.isEmpty) return const _EmptyReview();
+
+    final firstLesson = session.first.lesson;
+    final indices = session
+        .where((c) => c.lesson.id == firstLesson.id)
+        .map((c) => c.questionIndex)
+        .toList(growable: false);
+    final unit = units.firstWhere((u) => u.lessons.any((l) => l.id == firstLesson.id));
+    final errors = progress.skillErrors[SmartReviewEngine.skillKey(firstLesson.id)] ?? 0;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: WaqtiColors.offWhite,
+        appBar: AppBar(
+          title: const Text('المراجعة الذكية', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800)),
+          backgroundColor: WaqtiColors.primary,
+          foregroundColor: Colors.white,
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const SizedBox(height: 16),
+            const Text('🎯', textAlign: TextAlign.center, style: TextStyle(fontSize: 54)),
+            const SizedBox(height: 12),
+            const Text('مراجعة مصممة لك', textAlign: TextAlign.center,
+              style: TextStyle(fontFamily: 'Cairo', fontSize: 24, fontWeight: FontWeight.w800, color: WaqtiColors.textDark)),
+            const SizedBox(height: 6),
+            Text('سنبدأ بالأسئلة التي أخطأت فيها أكثر، ونتجنب ما أتقنته.', textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'Cairo', fontSize: 14, color: WaqtiColors.textLight)),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: unit.color.withOpacity(.25), width: 2)),
+              child: Column(children: [
+                Text(unit.emoji, style: const TextStyle(fontSize: 34)),
+                const SizedBox(height: 6),
+                Text(unit.title, style: TextStyle(fontFamily: 'Cairo', fontSize: 17, fontWeight: FontWeight.w800, color: unit.color)),
+                const SizedBox(height: 3),
+                Text(firstLesson.title, style: const TextStyle(fontFamily: 'Cairo', fontSize: 20, fontWeight: FontWeight.w700, color: WaqtiColors.textDark)),
+                const SizedBox(height: 10),
+                Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
+                  _Pill('${indices.length} أسئلة'),
+                  _Pill('$errors أخطاء سابقة'),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: 22),
+            ElevatedButton.icon(
+              onPressed: () => context.push('/lesson', extra: LessonRouteArgs(unit: unit, lesson: firstLesson, reviewQuestionIndices: indices)),
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: const Text('ابدأ المراجعة الآن', style: TextStyle(fontFamily: 'Cairo', fontSize: 17, fontWeight: FontWeight.w800)),
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15), backgroundColor: WaqtiColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(color: WaqtiColors.sky, borderRadius: BorderRadius.circular(20)),
+    child: Text(text, style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.w700, color: WaqtiColors.primary)),
+  );
+}
+
+class _EmptyReview extends StatelessWidget {
+  const _EmptyReview();
+  @override
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: Scaffold(
+      backgroundColor: WaqtiColors.offWhite,
+      appBar: AppBar(title: const Text('المراجعة الذكية', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800))),
+      body: const Center(child: Padding(
+        padding: EdgeInsets.all(28),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text('🌟', style: TextStyle(fontSize: 60)),
+          SizedBox(height: 16),
+          Text('لا توجد مراجعة مطلوبة الآن', textAlign: TextAlign.center,
+            style: TextStyle(fontFamily: 'Cairo', fontSize: 22, fontWeight: FontWeight.w800, color: WaqtiColors.textDark)),
+          SizedBox(height: 8),
+          Text('أكمل بعض الدروس أولًا، وسنحلل إجاباتك ونبني لك تدريبًا مخصصًا.', textAlign: TextAlign.center,
+            style: TextStyle(fontFamily: 'Cairo', fontSize: 15, color: WaqtiColors.textLight)),
+        ]),
+      )),
+    ),
+  );
+}
+''')
+
+          # Remove this one-off patch workflow after its work is committed.
+          wf = Path('.github/workflows/patch-smart-review.yml')
+          wf.unlink()
           PY
-      - name: Commit patch
+      - name: Commit implementation
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add lib/features/curriculum/presentation/pages/lesson_page.dart
-          git diff --cached --quiet && exit 0
-          git commit -m 'feat(review): record lesson question outcomes [smart-review-patched]'
+          git add lib/features/curriculum/presentation/pages/lesson_page.dart lib/core/router/app_router.dart lib/features/progress/presentation/pages/smart_review_page.dart
+          git rm -f .github/workflows/patch-smart-review.yml
+          git commit -m 'feat(review): launch targeted smart review session [targeted-review]'
           git push
