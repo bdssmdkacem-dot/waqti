@@ -218,6 +218,7 @@ class _UnitCard extends ConsumerWidget {
     final done = unit.lessons.where((l) => prog?.isLessonDone(l.id) ?? false).length;
     final pct = unit.lessons.isEmpty ? 0.0 : done / unit.lessons.length;
     final color = unit.color;
+    final lessonIds = unit.lessons.map((l) => l.id).toList();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -248,7 +249,7 @@ class _UnitCard extends ConsumerWidget {
           ]),
         ),
         if (!locked)
-          ...unit.lessons.asMap().entries.map((e) => _LessonRow(lesson: e.value, index: e.key, unit: unit))
+          ...unit.lessons.asMap().entries.map((e) => _LessonRow(lesson: e.value, index: e.key, unit: unit, lessonIds: lessonIds))
         else
           Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('🔒 أكمل الوحدة السابقة', style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.xs(context), color: WaqtiColors.textLight))),
       ]),
@@ -264,39 +265,44 @@ class _UnitCard extends ConsumerWidget {
 }
 
 class _LessonRow extends ConsumerWidget {
-  const _LessonRow({required this.lesson, required this.index, required this.unit});
+  const _LessonRow({required this.lesson, required this.index, required this.unit, required this.lessonIds});
   final WaqtiLesson lesson;
   final int index;
   final WaqtiUnit unit;
+  final List<String> lessonIds;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final prog = ref.watch(progressNotifierProvider).valueOrNull;
     final done = prog?.isLessonDone(lesson.id) ?? false;
+    final unlocked = prog?.isLessonUnlocked(lessonIds, index) ?? index == 0;
     final stars = prog?.getLessonStars(lesson.id) ?? 0;
     final color = unit.color;
 
     return InkWell(
-      onTap: () {
+      onTap: !unlocked ? null : () {
         ref.read(soundServiceProvider).click();
         context.push('/lesson', extra: LessonRouteArgs(unit: unit, lesson: lesson));
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        child: Row(children: [
-          Container(
-            width: 32, height: 32,
-            decoration: BoxDecoration(color: done ? color : color.withOpacity(.12), shape: BoxShape.circle),
-            child: Center(child: done ? const Icon(Icons.check, color: Colors.white, size: 16) : Text('${index+1}', style: TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w700, color: color))),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(lesson.title, style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.sm(context), fontWeight: FontWeight.w600, color: WaqtiColors.textDark)),
-            Text(lesson.subtitle, style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.xs(context), color: WaqtiColors.textLight)),
-          ])),
-          if (done) Text('⭐' * stars, style: const TextStyle(fontSize: 12)),
-          const Icon(Icons.chevron_left, color: WaqtiColors.textLight, size: 18),
-        ]),
+      child: Opacity(
+        opacity: unlocked ? 1 : .48,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Row(children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(color: done ? color : color.withOpacity(.12), shape: BoxShape.circle),
+              child: Center(child: done ? const Icon(Icons.check, color: Colors.white, size: 16) : unlocked ? Text('${index+1}', style: TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w700, color: color)) : const Icon(Icons.lock_outline, size: 15)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(lesson.title, style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.sm(context), fontWeight: FontWeight.w600, color: WaqtiColors.textDark)),
+              Text(lesson.subtitle, style: TextStyle(fontFamily: 'Cairo', fontSize: WaqtiSize.xs(context), color: WaqtiColors.textLight)),
+            ])),
+            if (done) Text('⭐' * stars, style: const TextStyle(fontSize: 12)),
+            Icon(unlocked ? Icons.chevron_left : Icons.lock_outline, color: WaqtiColors.textLight, size: 18),
+          ]),
+        ),
       ),
     );
   }
