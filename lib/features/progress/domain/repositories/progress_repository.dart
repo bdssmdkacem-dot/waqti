@@ -10,5 +10,7 @@ abstract interface class ProgressRepository {
     [List<String> mistakes = const []]
   );
   Future<void> setPremium(bool value);
+  Future<void> addBonusRetry();
+  Future<bool> useBonusRetry();
   Future<void> reset();
 }
