@@ -28,10 +28,10 @@ class SharedPrefsProgressRepository implements ProgressRepository {
           completedAt: v['completedAt'] != null ? DateTime.tryParse(v['completedAt'] as String) : null,
         );
       }
-      final rawErrors = (map['skillErrors'] as Map<String, dynamic>?) ?? {};
-      final skillErrors = <String, int>{
-        for (final e in rawErrors.entries) e.key: (e.value as num).toInt(),
-      };
+      Map<String, int> ints(String key) {
+        final raw = (map[key] as Map<String, dynamic>?) ?? {};
+        return {for (final e in raw.entries) e.key: (e.value as num).toInt()};
+      }
       return UserProgress(
         lessons: lessons,
         streakDays: (map['streakDays'] as int?) ?? 0,
@@ -39,7 +39,9 @@ class SharedPrefsProgressRepository implements ProgressRepository {
         totalLessons: (map['totalLessons'] as int?) ?? 0,
         isPremium: (map['isPremium'] as bool?) ?? false,
         lastPlayDate: map['lastPlayDate'] != null ? DateTime.tryParse(map['lastPlayDate'] as String) : null,
-        skillErrors: skillErrors,
+        skillErrors: ints('skillErrors'),
+        questionErrors: ints('questionErrors'),
+        questionCorrect: ints('questionCorrect'),
         bonusRetries: (map['bonusRetries'] as int?) ?? 0,
       );
     } catch (_) {
@@ -53,7 +55,7 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     int stars,
     int correct,
     int total,
-    [List<String> mistakes = const []]
+    [List<String> mistakes = const [], List<String> correctQuestions = const []]
   ) async {
     var prog = await loadProgress();
     final prev = prog.lessons[lessonId];
@@ -62,8 +64,8 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     final isNew = prevStars == 0;
     final newStars = stars > prevStars ? stars : prevStars;
     final newBest = correct > prevBest ? correct : prevBest;
-    int totalSt = prog.totalStars;
-    int totalLes = prog.totalLessons;
+    var totalSt = prog.totalStars;
+    var totalLes = prog.totalLessons;
     if (stars > prevStars) totalSt += stars - prevStars;
     if (isNew) totalLes++;
 
@@ -71,9 +73,8 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     final today = DateTime(now.year, now.month, now.day);
     var streak = prog.streakDays;
     final last = prog.lastPlayDate;
-    if (last == null) {
-      streak = 1;
-    } else {
+    if (last == null) streak = 1;
+    else {
       final lastDay = DateTime(last.year, last.month, last.day);
       final diff = today.difference(lastDay).inDays;
       if (diff == 1) streak++;
@@ -82,6 +83,10 @@ class SharedPrefsProgressRepository implements ProgressRepository {
 
     final errors = Map<String, int>.from(prog.skillErrors);
     for (final skill in mistakes) errors[skill] = (errors[skill] ?? 0) + 1;
+    final qErrors = Map<String, int>.from(prog.questionErrors);
+    for (final id in mistakes) qErrors[id] = (qErrors[id] ?? 0) + 1;
+    final qCorrect = Map<String, int>.from(prog.questionCorrect);
+    for (final id in correctQuestions) qCorrect[id] = (qCorrect[id] ?? 0) + 1;
 
     final updatedLessons = Map<String, LessonProgress>.from(prog.lessons)
       ..[lessonId] = LessonProgress(
@@ -99,39 +104,33 @@ class SharedPrefsProgressRepository implements ProgressRepository {
       totalLessons: totalLes,
       lastPlayDate: now,
       skillErrors: errors,
+      questionErrors: qErrors,
+      questionCorrect: qCorrect,
     );
-
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, json.encode(_toMap(prog)));
   }
 
-  @override
-  Future<void> setPremium(bool value) async {
+  @override Future<void> setPremium(bool value) async {
     var prog = await loadProgress();
     prog = prog.copyWith(isPremium: value);
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, json.encode(_toMap(prog)));
   }
-
-  @override
-  Future<void> addBonusRetry() async {
+  @override Future<void> addBonusRetry() async {
     var prog = await loadProgress();
     prog = prog.copyWith(bonusRetries: prog.bonusRetries + 1);
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, json.encode(_toMap(prog)));
   }
-
-  @override
-  Future<bool> useBonusRetry() async {
+  @override Future<bool> useBonusRetry() async {
     final prog = await loadProgress();
     if (prog.bonusRetries <= 0) return false;
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, json.encode(_toMap(prog.copyWith(bonusRetries: prog.bonusRetries - 1))));
     return true;
   }
-
-  @override
-  Future<void> reset() async {
+  @override Future<void> reset() async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_key);
   }
@@ -143,15 +142,14 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     'isPremium': prog.isPremium,
     'lastPlayDate': prog.lastPlayDate?.toIso8601String(),
     'skillErrors': prog.skillErrors,
+    'questionErrors': prog.questionErrors,
+    'questionCorrect': prog.questionCorrect,
     'bonusRetries': prog.bonusRetries,
-    'lessons': {
-      for (final e in prog.lessons.entries)
-        e.key: {
-          'stars': e.value.stars,
-          'bestCorrect': e.value.bestCorrect,
-          'totalQuestions': e.value.totalQuestions,
-          'completedAt': e.value.completedAt?.toIso8601String(),
-        },
-    },
+    'lessons': {for (final e in prog.lessons.entries e.key: {
+      'stars': e.value.stars,
+      'bestCorrect': e.value.bestCorrect,
+      'totalQuestions': e.value.totalQuestions,
+      'completedAt': e.value.completedAt?.toIso8601String(),
+    })},
   };
 }
