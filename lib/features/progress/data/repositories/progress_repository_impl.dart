@@ -1,8 +1,8 @@
 import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/progress_entity.dart';
 import '../../domain/repositories/progress_repository.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final progressRepositoryProvider = Provider<ProgressRepository>((ref) => SharedPrefsProgressRepository());
 
@@ -13,7 +13,9 @@ class SharedPrefsProgressRepository implements ProgressRepository {
   Future<UserProgress> loadProgress() async {
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_key);
-    if (raw == null) return const UserProgress();
+    if (raw == null) {
+      return const UserProgress();
+    }
     try {
       final map = json.decode(raw) as Map<String, dynamic>;
       final lessons = <String, LessonProgress>{};
@@ -25,20 +27,29 @@ class SharedPrefsProgressRepository implements ProgressRepository {
           stars: (v['stars'] as int?) ?? 0,
           bestCorrect: (v['bestCorrect'] as int?) ?? 0,
           totalQuestions: (v['totalQuestions'] as int?) ?? 0,
-          completedAt: v['completedAt'] != null ? DateTime.tryParse(v['completedAt'] as String) : null,
+          completedAt: v['completedAt'] != null
+              ? DateTime.tryParse(v['completedAt'] as String)
+              : null,
         );
       }
+
       Map<String, int> ints(String key) {
-        final raw = (map[key] as Map<String, dynamic>?) ?? {};
-        return {for (final e in raw.entries) e.key: (e.value as num).toInt()};
+        final rawValues = (map[key] as Map<String, dynamic>?) ?? {};
+        return {
+          for (final entry in rawValues.entries)
+            entry.key: (entry.value as num).toInt(),
+        };
       }
+
       return UserProgress(
         lessons: lessons,
         streakDays: (map['streakDays'] as int?) ?? 0,
         totalStars: (map['totalStars'] as int?) ?? 0,
         totalLessons: (map['totalLessons'] as int?) ?? 0,
         isPremium: (map['isPremium'] as bool?) ?? false,
-        lastPlayDate: map['lastPlayDate'] != null ? DateTime.tryParse(map['lastPlayDate'] as String) : null,
+        lastPlayDate: map['lastPlayDate'] != null
+            ? DateTime.tryParse(map['lastPlayDate'] as String)
+            : null,
         skillErrors: ints('skillErrors'),
         questionErrors: ints('questionErrors'),
         questionCorrect: ints('questionCorrect'),
@@ -66,27 +77,41 @@ class SharedPrefsProgressRepository implements ProgressRepository {
     final newBest = correct > prevBest ? correct : prevBest;
     var totalSt = prog.totalStars;
     var totalLes = prog.totalLessons;
-    if (stars > prevStars) totalSt += stars - prevStars;
-    if (isNew) totalLes++;
+    if (stars > prevStars) {
+      totalSt += stars - prevStars;
+    }
+    if (isNew) {
+      totalLes++;
+    }
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     var streak = prog.streakDays;
     final last = prog.lastPlayDate;
-    if (last == null) streak = 1;
-    else {
+    if (last == null) {
+      streak = 1;
+    } else {
       final lastDay = DateTime(last.year, last.month, last.day);
       final diff = today.difference(lastDay).inDays;
-      if (diff == 1) streak++;
-      else if (diff > 1) streak = 1;
+      if (diff == 1) {
+        streak++;
+      } else if (diff > 1) {
+        streak = 1;
+      }
     }
 
     final errors = Map<String, int>.from(prog.skillErrors);
-    for (final skill in mistakes) errors[skill] = (errors[skill] ?? 0) + 1;
+    for (final skill in mistakes) {
+      errors[skill] = (errors[skill] ?? 0) + 1;
+    }
     final qErrors = Map<String, int>.from(prog.questionErrors);
-    for (final id in mistakes) qErrors[id] = (qErrors[id] ?? 0) + 1;
+    for (final id in mistakes) {
+      qErrors[id] = (qErrors[id] ?? 0) + 1;
+    }
     final qCorrect = Map<String, int>.from(prog.questionCorrect);
-    for (final id in correctQuestions) qCorrect[id] = (qCorrect[id] ?? 0) + 1;
+    for (final id in correctQuestions) {
+      qCorrect[id] = (qCorrect[id] ?? 0) + 1;
+    }
 
     final updatedLessons = Map<String, LessonProgress>.from(prog.lessons)
       ..[lessonId] = LessonProgress(
@@ -107,49 +132,65 @@ class SharedPrefsProgressRepository implements ProgressRepository {
       questionErrors: qErrors,
       questionCorrect: qCorrect,
     );
+
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, json.encode(_toMap(prog)));
   }
 
-  @override Future<void> setPremium(bool value) async {
+  @override
+  Future<void> setPremium(bool value) async {
     var prog = await loadProgress();
     prog = prog.copyWith(isPremium: value);
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, json.encode(_toMap(prog)));
   }
-  @override Future<void> addBonusRetry() async {
+
+  @override
+  Future<void> addBonusRetry() async {
     var prog = await loadProgress();
     prog = prog.copyWith(bonusRetries: prog.bonusRetries + 1);
     final p = await SharedPreferences.getInstance();
     await p.setString(_key, json.encode(_toMap(prog)));
   }
-  @override Future<bool> useBonusRetry() async {
+
+  @override
+  Future<bool> useBonusRetry() async {
     final prog = await loadProgress();
-    if (prog.bonusRetries <= 0) return false;
+    if (prog.bonusRetries <= 0) {
+      return false;
+    }
     final p = await SharedPreferences.getInstance();
-    await p.setString(_key, json.encode(_toMap(prog.copyWith(bonusRetries: prog.bonusRetries - 1))));
+    await p.setString(
+      _key,
+      json.encode(_toMap(prog.copyWith(bonusRetries: prog.bonusRetries - 1))),
+    );
     return true;
   }
-  @override Future<void> reset() async {
+
+  @override
+  Future<void> reset() async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_key);
   }
 
   Map<String, dynamic> _toMap(UserProgress prog) => {
-    'streakDays': prog.streakDays,
-    'totalStars': prog.totalStars,
-    'totalLessons': prog.totalLessons,
-    'isPremium': prog.isPremium,
-    'lastPlayDate': prog.lastPlayDate?.toIso8601String(),
-    'skillErrors': prog.skillErrors,
-    'questionErrors': prog.questionErrors,
-    'questionCorrect': prog.questionCorrect,
-    'bonusRetries': prog.bonusRetries,
-    'lessons': {for (final e in prog.lessons.entries e.key: {
-      'stars': e.value.stars,
-      'bestCorrect': e.value.bestCorrect,
-      'totalQuestions': e.value.totalQuestions,
-      'completedAt': e.value.completedAt?.toIso8601String(),
-    })},
-  };
+        'streakDays': prog.streakDays,
+        'totalStars': prog.totalStars,
+        'totalLessons': prog.totalLessons,
+        'isPremium': prog.isPremium,
+        'lastPlayDate': prog.lastPlayDate?.toIso8601String(),
+        'skillErrors': prog.skillErrors,
+        'questionErrors': prog.questionErrors,
+        'questionCorrect': prog.questionCorrect,
+        'bonusRetries': prog.bonusRetries,
+        'lessons': {
+          for (final entry in prog.lessons.entries)
+            entry.key: {
+              'stars': entry.value.stars,
+              'bestCorrect': entry.value.bestCorrect,
+              'totalQuestions': entry.value.totalQuestions,
+              'completedAt': entry.value.completedAt?.toIso8601String(),
+            },
+        },
+      };
 }
