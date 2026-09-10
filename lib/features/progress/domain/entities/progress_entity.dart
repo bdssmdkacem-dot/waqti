@@ -39,6 +39,8 @@ class UserProgress {
     this.isPremium = false,
     this.lastPlayDate,
     this.skillErrors = const {},
+    this.questionErrors = const {},
+    this.questionCorrect = const {},
     this.bonusRetries = 0,
   });
 
@@ -46,25 +48,19 @@ class UserProgress {
   final int streakDays, totalStars, totalLessons;
   final bool isPremium;
   final DateTime? lastPlayDate;
-
-  /// Cumulative mistakes by learning skill. Keys are stable internal IDs.
   final Map<String, int> skillErrors;
-
-  /// Bonus lesson retries earned from an optional rewarded ad.
+  final Map<String, int> questionErrors;
+  final Map<String, int> questionCorrect;
   final int bonusRetries;
 
   bool isLessonDone(String id) => lessons[id]?.isCompleted ?? false;
   int getLessonStars(String id) => lessons[id]?.stars ?? 0;
 
-  /// Returns the skill the child needs to practise most.
   String? get weakestSkill {
     if (skillErrors.isEmpty) return null;
     return skillErrors.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
 
-  /// The first lesson is unlocked. Every later lesson requires the
-  /// immediately preceding lesson to be completed. This prevents children
-  /// from skipping the intended learning sequence.
   bool isLessonUnlocked(List<String> lessonIds, int lessonIndex) {
     if (lessonIndex <= 0) return true;
     if (lessonIndex >= lessonIds.length) return false;
@@ -84,6 +80,8 @@ class UserProgress {
     bool? isPremium,
     DateTime? lastPlayDate,
     Map<String, int>? skillErrors,
+    Map<String, int>? questionErrors,
+    Map<String, int>? questionCorrect,
     int? bonusRetries,
   }) => UserProgress(
     lessons: lessons ?? this.lessons,
@@ -93,6 +91,8 @@ class UserProgress {
     isPremium: isPremium ?? this.isPremium,
     lastPlayDate: lastPlayDate ?? this.lastPlayDate,
     skillErrors: skillErrors ?? this.skillErrors,
+    questionErrors: questionErrors ?? this.questionErrors,
+    questionCorrect: questionCorrect ?? this.questionCorrect,
     bonusRetries: bonusRetries ?? this.bonusRetries,
   );
 }
