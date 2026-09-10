@@ -32,6 +32,9 @@ class _LessonPageState extends ConsumerState<LessonPage> {
   List<bool?> results = [];
   late ConfettiController _confetti;
   bool finished = false;
+  bool rewardBusy = false;
+  bool hintUsed = false;
+  String? hintText;
   int setH = 12, setM = 0;
 
   int get totalQ => widget.lesson.totalQuestions;
@@ -53,11 +56,113 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     super.dispose();
   }
 
-  void _resetQ() { answered = false; lastCorrect = null; setH = 12; setM = 0; }
+  void _resetQ() {
+    answered = false;
+    lastCorrect = null;
+    hintUsed = false;
+    hintText = null;
+    setH = 12;
+    setM = 0;
+  }
 
   void _onAnswer(bool ok) {
     setState(() { answered = true; lastCorrect = ok; results[qi] = ok; if (ok) correct++; });
     if (ok) _sound.correct(); else _sound.wrong();
+  }
+
+  Future<void> _showHint() async {
+    if (answered || hintUsed || rewardBusy) return;
+    final ads = ref.read(adServiceProvider);
+    if (!ads.rewardedHintReady) {
+      await ads.loadRewardedHint();
+      if (!mounted || !ref.read(adServiceProvider).rewardedHintReady) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('الإعلان غير جاهز الآن. حاول بعد لحظات.', style: TextStyle(fontFamily: 'Cairo')),
+        ));
+        return;
+      }
+    }
+    setState(() => rewardBusy = true);
+    var earned = false;
+    await ads.showRewardedHint(onRewarded: (_) {
+      earned = true;
+      if (!mounted) return;
+      setState(() {
+        hintUsed = true;
+        hintText = _hintForCurrentQuestion();
+      });
+    });
+    if (mounted) setState(() => rewardBusy = false);
+    if (!earned && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('لم تكتمل مشاهدة الإعلان، لذلك لم يتم فتح التلميح.', style: TextStyle(fontFamily: 'Cairo')),
+      ));
+    }
+  }
+
+  String _hintForCurrentQuestion() {
+    if (_isCalc) {
+      return 'تلميح: احسب الساعات أولًا، ثم الدقائق. إذا كانت دقائق النهاية أقل من البداية، استعر ساعة واحدة وحوّلها إلى 60 دقيقة.';
+    }
+    final q = widget.lesson.questions[qi];
+    switch (q.type) {
+      case QuestionType.setHands:
+        return 'تلميح: العقرب الطويل يحدد الدقائق، والعقرب القصير يحدد الساعة. ابدأ بالدقائق ثم اضبط الساعة.';
+      case QuestionType.digitalMC:
+        return 'تلميح: انتبه إلى الفرق بين 00 و12، وبين صباحًا ومساءً. اقرأ الساعة الرقمية كما هي ثم اختر نظام 24 ساعة الصحيح.';
+      case QuestionType.multipleChoice:
+      default:
+        return 'تلميح: ركّز على العقرب الطويل أولًا لمعرفة الدقائق، ثم اقرأ العقرب القصير لمعرفة الساعة.';
+    }
+  }
+
+  Future<void> _claimRetryReward() async {
+    if (rewardBusy) return;
+    final ads = ref.read(adServiceProvider);
+    if (!ads.rewardedReady) {
+      await ads.loadRewarded();
+      if (!mounted || !ref.read(adServiceProvider).rewardedReady) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('مكافأة الإعلان غير جاهزة الآن. حاول بعد لحظات.', style: TextStyle(fontFamily: 'Cairo')),
+        ));
+        return;
+      }
+    }
+    setState(() => rewardBusy = true);
+    var earned = false;
+    await ads.showRewarded(onRewarded: (_) async {
+      earned = true;
+      await ref.read(progressNotifierProvider.notifier).addBonusRetry();
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('🎁 حصلت على محاولة إضافية! يمكنك استعمالها لإعادة الدرس.', style: TextStyle(fontFamily: 'Cairo')),
+        ));
+      }
+    });
+    if (mounted) setState(() => rewardBusy = false);
+    if (!earned && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('لم تكتمل مشاهدة الإعلان، لذلك لم تُمنح المكافأة.', style: TextStyle(fontFamily: 'Cairo')),
+      ));
+    }
+  }
+
+  Future<void> _retryLesson() async {
+    final progress = ref.read(progressNotifierProvider).valueOrNull;
+    final hasToken = (progress?.bonusRetries ?? 0) > 0;
+    if (hasToken) {
+      final used = await ref.read(progressNotifierProvider.notifier).useBonusRetry();
+      if (!used || !mounted) return;
+    }
+    _sound.click();
+    setState(() {
+      qi = 0;
+      correct = 0;
+      finished = false;
+      results = List.filled(totalQ, null);
+      _resetQ();
+    });
   }
 
   void _next() {
@@ -103,9 +208,40 @@ class _LessonPageState extends ConsumerState<LessonPage> {
         _zaidBubble(),
         const SizedBox(height: 16),
         _isCalc ? _buildCalcQ() : _buildTimeQ(),
+        if (!answered) _hintButton(),
       ]),
     )),
   ]);
+
+  Widget _hintButton() => Padding(
+    padding: const EdgeInsets.only(top: 12),
+    child: Column(children: [
+      OutlinedButton.icon(
+        onPressed: rewardBusy ? null : _showHint,
+        icon: rewardBusy
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.lightbulb_outline),
+        label: Text(rewardBusy ? 'جاري فتح التلميح…' : '💡 شاهد إعلانًا للحصول على تلميح',
+          style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w700)),
+        style: OutlinedButton.styleFrom(foregroundColor: color, side: BorderSide(color: color.withOpacity(.35)),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11)),
+      ),
+      if (hintText != null)
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: WaqtiColors.sky, borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withOpacity(.18))),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.tips_and_updates_outlined, color: color),
+            const SizedBox(width: 10),
+            Expanded(child: Text(hintText!, style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5,
+              height: 1.6, color: WaqtiColors.textDark))),
+          ]),
+        ).animate().fadeIn(duration: 250.ms).slideY(begin: .08),
+    ]),
+  );
 
   Widget _topBar() => Container(
     padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
@@ -148,7 +284,7 @@ class _LessonPageState extends ConsumerState<LessonPage> {
 
   Widget _zaidBubble() {
     final prompt = _isCalc ? widget.lesson.calcQuestions[qi].prompt : widget.lesson.questions[qi].prompt;
-    final mood   = !answered ? ZaidMood.thinking : (lastCorrect == true ? ZaidMood.celebrating : ZaidMood.encouraging);
+    final mood = !answered ? ZaidMood.thinking : (lastCorrect == true ? ZaidMood.celebrating : ZaidMood.encouraging);
     return ZaidMascot(mood: mood, size: 80, speech: prompt);
   }
 
@@ -156,13 +292,12 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     final q = widget.lesson.questions[qi];
     return switch (q.type) {
       QuestionType.multipleChoice => _buildMC(q),
-      QuestionType.setHands       => _buildSetHands(q),
-      QuestionType.digitalMC      => _buildDigitalMC(q),
-      _                           => _buildMC(q),
+      QuestionType.setHands => _buildSetHands(q),
+      QuestionType.digitalMC => _buildDigitalMC(q),
+      _ => _buildMC(q),
     };
   }
 
-  // ── Multiple Choice ─────────────────────────────────────────
   Widget _buildMC(TimeQuestion q) {
     final choices = _genChoices(q.hour, q.minute);
     return Column(children: [
@@ -173,9 +308,9 @@ class _LessonPageState extends ConsumerState<LessonPage> {
         crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 2.3,
         children: choices.map((c) {
           final isCorrect = c == q.timeStr;
-          final bg     = answered && isCorrect ? const Color(0xFFE8F5E9) : Colors.white;
+          final bg = answered && isCorrect ? const Color(0xFFE8F5E9) : Colors.white;
           final border = answered && isCorrect ? WaqtiColors.mint : color.withOpacity(.2);
-          final fg     = answered && isCorrect ? const Color(0xFF2E7D32) : WaqtiColors.textDark;
+          final fg = answered && isCorrect ? const Color(0xFF2E7D32) : WaqtiColors.textDark;
           return GestureDetector(
             onTap: answered ? null : () { _sound.click(); _onAnswer(c == q.timeStr); },
             child: AnimatedContainer(duration: 200.ms,
@@ -189,7 +324,6 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     ]);
   }
 
-  // ── Digital MC ──────────────────────────────────────────────
   Widget _buildDigitalMC(TimeQuestion q) {
     final h12 = q.hour > 12 ? q.hour - 12 : (q.hour == 0 ? 12 : q.hour);
     final choices = _genDigChoices(q.hour, q.minute);
@@ -226,7 +360,6 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     ]);
   }
 
-  // ── Set Hands ───────────────────────────────────────────────
   Widget _buildSetHands(TimeQuestion q) {
     final correctNow = answered && setH % 12 == q.hour % 12 && setM == q.minute;
     return Column(children: [
@@ -268,7 +401,6 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     ]);
   }
 
-  // ── Time Calc ───────────────────────────────────────────────
   Widget _buildCalcQ() {
     final q = widget.lesson.calcQuestions[qi];
     Future.microtask(() => _sound.countdown());
@@ -322,13 +454,14 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     ).animate().fadeIn(duration: 250.ms).scale(begin: const Offset(.92,.92));
   }
 
-  // ── Finish screen ───────────────────────────────────────────
   Widget _buildFinish() {
     final stars = correct == totalQ ? 3 : correct >= (totalQ*2/3).ceil() ? 2 : 1;
-    final pct   = (correct / totalQ * 100).round();
-    final next  = CurriculumDatasource.instance.findNext(widget.unit.id, widget.lesson.id);
-    final ads   = ref.watch(adServiceProvider);
-    final isPremium = ref.watch(progressNotifierProvider).valueOrNull?.isPremium ?? false;
+    final pct = (correct / totalQ * 100).round();
+    final next = CurriculumDatasource.instance.findNext(widget.unit.id, widget.lesson.id);
+    final ads = ref.watch(adServiceProvider);
+    final progress = ref.watch(progressNotifierProvider).valueOrNull;
+    final isPremium = progress?.isPremium ?? false;
+    final retries = progress?.bonusRetries ?? 0;
 
     return SingleChildScrollView(child: Padding(padding: const EdgeInsets.all(28), child: Column(children: [
       const SizedBox(height: 12),
@@ -348,7 +481,30 @@ class _LessonPageState extends ConsumerState<LessonPage> {
       Wrap(spacing: 10, alignment: WrapAlignment.center, children: [
         _pill('الدقة: $pct%'), _pill('✓ $correct / ✗ ${totalQ-correct}'),
       ]),
-      const SizedBox(height: 20),
+      const SizedBox(height: 18),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: WaqtiColors.sky, borderRadius: BorderRadius.circular(16)),
+        child: Row(children: [
+          const Text('🎟️', style: TextStyle(fontSize: 24)),
+          const SizedBox(width: 10),
+          Expanded(child: Text('محاولاتك الإضافية: $retries\nيمكنك كسب محاولة جديدة بمشاهدة إعلان اختياري.',
+            style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, height: 1.5, color: WaqtiColors.textDark))),
+        ]),
+      ),
+      const SizedBox(height: 10),
+      if (!isPremium && ads.rewardedReady)
+        SizedBox(width: double.infinity, child: OutlinedButton.icon(
+          onPressed: rewardBusy ? null : _claimRetryReward,
+          icon: rewardBusy
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.card_giftcard_outlined),
+          label: Text(rewardBusy ? 'جاري تجهيز المكافأة…' : '🎁 شاهد إعلانًا واكسب محاولة إضافية',
+            style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w700)),
+          style: OutlinedButton.styleFrom(foregroundColor: WaqtiColors.primary, padding: const EdgeInsets.symmetric(vertical: 13)),
+        )),
+      const SizedBox(height: 14),
       if (next.lesson != null)
         Padding(padding: const EdgeInsets.only(bottom: 10), child: SizedBox(width: double.infinity,
           child: ElevatedButton(
@@ -365,15 +521,17 @@ class _LessonPageState extends ConsumerState<LessonPage> {
         child: const Text('العودة للمسار 🏠', style: TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w700)))),
       const SizedBox(height: 8),
       SizedBox(width: double.infinity, child: OutlinedButton(
-        onPressed: () { _sound.click(); setState(() { qi=0; correct=0; finished=false; results=List.filled(totalQ,null); _resetQ(); }); },
+        onPressed: _retryLesson,
         style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-        child: const Text('🔄 أعد الدرس', style: TextStyle(fontFamily: 'Cairo', fontSize: 14, fontWeight: FontWeight.w600, color: WaqtiColors.textMid)))),
+        child: Text(retries > 0 ? '🔄 أعد الدرس مجانًا — استخدم محاولة إضافية' : '🔄 أعد الدرس',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontFamily: 'Cairo', fontSize: 14, fontWeight: FontWeight.w600, color: WaqtiColors.textMid)))),
       if (!isPremium && ads.lessonBannerReady && ads.lessonBanner != null) ...[
         const SizedBox(height: 16),
         SizedBox(
-          width:  ads.lessonBanner!.size.width.toDouble(),
+          width: ads.lessonBanner!.size.width.toDouble(),
           height: ads.lessonBanner!.size.height.toDouble(),
-          child:  AdWidget(ad: ads.lessonBanner!),
+          child: AdWidget(ad: ads.lessonBanner!),
         ),
       ],
     ])));
@@ -384,7 +542,6 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     decoration: BoxDecoration(color: WaqtiColors.sky, borderRadius: BorderRadius.circular(20)),
     child: Text(t, style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.w600, color: WaqtiColors.primary)));
 
-  // ── Choice generators ───────────────────────────────────────
   static const _minPool = [0,0,15,30,45,5,10,20,25,30,35,40,50,55];
 
   List<String> _genChoices(int h, int m) {
@@ -410,11 +567,11 @@ class _LessonPageState extends ConsumerState<LessonPage> {
     final list = <_DigChoice>[_DigChoice(correct, '$correct ${apAr(h)}', true)];
     final swapH = h < 12 ? h + 12 : h - 12;
     final candidates = [
-      _DigChoice(t24(swapH,m),          '${t24(swapH,m)} ${apAr(swapH)}',          false),
-      _DigChoice(t24((h+1)%24,m),       '${t24((h+1)%24,m)} ${apAr((h+1)%24)}',   false),
-      _DigChoice(t24((h+23)%24,m),      '${t24((h+23)%24,m)} ${apAr((h+23)%24)}', false),
+      _DigChoice(t24(swapH,m), '${t24(swapH,m)} ${apAr(swapH)}', false),
+      _DigChoice(t24((h+1)%24,m), '${t24((h+1)%24,m)} ${apAr((h+1)%24)}', false),
+      _DigChoice(t24((h+23)%24,m), '${t24((h+23)%24,m)} ${apAr((h+23)%24)}', false),
     ];
-    if (h==0)          candidates.add(const _DigChoice('12:00','12:00 PM — الظهيرة',false));
+    if (h==0) candidates.add(const _DigChoice('12:00','12:00 PM — الظهيرة',false));
     if (h==12 && m==0) candidates.add(const _DigChoice('00:00','00:00 — منتصف الليل',false));
     for (final c in candidates) {
       if (!seen.contains(c.time) && list.length < 4) { seen.add(c.time); list.add(c); }
@@ -432,5 +589,5 @@ class _LessonPageState extends ConsumerState<LessonPage> {
 class _DigChoice {
   const _DigChoice(this.time, this.label, this.correct);
   final String time, label;
-  final bool   correct;
+  final bool correct;
 }
