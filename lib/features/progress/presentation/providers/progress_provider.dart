@@ -3,27 +3,22 @@ import '../../data/repositories/progress_repository_impl.dart';
 import '../../domain/entities/progress_entity.dart';
 
 final progressNotifierProvider =
-    AsyncNotifierProvider<ProgressNotifier, UserProgress>(
-  ProgressNotifier.new,
-);
+    AsyncNotifierProvider<ProgressNotifier, UserProgress>(ProgressNotifier.new);
 
 class ProgressNotifier extends AsyncNotifier<UserProgress> {
   @override
-  Future<UserProgress> build() =>
-      ref.watch(progressRepositoryProvider).loadProgress();
+  Future<UserProgress> build() => ref.watch(progressRepositoryProvider).loadProgress();
 
   Future<void> completeLesson(
     String lessonId,
     int stars,
     int correct,
-    int total,
-    [List<String> mistakes = const []]
-  ) async {
-    final recordedMistakes = mistakes.isEmpty && correct < total
-        ? List<String>.filled(total - correct, 'lesson:$lessonId')
-        : mistakes;
+    int total, [
+    List<String> mistakes = const [],
+    List<String> correctQuestions = const [],
+  ]) async {
     await ref.read(progressRepositoryProvider).saveLesson(
-      lessonId, stars, correct, total, recordedMistakes,
+      lessonId, stars, correct, total, mistakes, correctQuestions,
     );
     ref.invalidateSelf();
   }
