@@ -8,7 +8,7 @@ abstract interface class ProgressRepository {
     int stars,
     int correct,
     int total,
-    [List<String> mistakes = const [], List<String> correctQuestions = const []],
+    [List<String> mistakes = const [], List<String> correctQuestions = const []]
   );
 
   Future<void> setPremium(bool value);
