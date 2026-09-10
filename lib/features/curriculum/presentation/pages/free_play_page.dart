@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/ads/data/ad_service.dart';
 import '../../../../features/curriculum/data/datasources/curriculum_datasource.dart';
 import '../../../../features/curriculum/domain/entities/curriculum_entities.dart';
+import '../../../../features/progress/domain/services/smart_review_engine.dart';
 import '../../../../features/progress/presentation/providers/progress_provider.dart';
 import '../../../../features/settings/data/sound_service.dart';
 import '../../../../shared/widgets/analog_clock.dart';
@@ -14,7 +15,8 @@ import '../../../../shared/widgets/digital_clock.dart';
 import '../../../../shared/widgets/zaid_mascot.dart';
 
 class FreePlayPage extends ConsumerStatefulWidget {
-  const FreePlayPage({super.key});
+  const FreePlayPage({super.key, this.smartReview = false});
+  final bool smartReview;
 
   @override
   ConsumerState<FreePlayPage> createState() => _FreePlayPageState();
@@ -27,21 +29,12 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
   int? _challengeIndex;
   bool _challengeAnswered = false;
   bool? _challengeCorrect;
+  final Set<String> _reviewedKeys = <String>{};
+  bool _reviewComplete = false;
 
   static const _hw = [
-    '',
-    'الواحدة',
-    'الثانية',
-    'الثالثة',
-    'الرابعة',
-    'الخامسة',
-    'السادسة',
-    'السابعة',
-    'الثامنة',
-    'التاسعة',
-    'العاشرة',
-    'الحادية عشرة',
-    'الثانية عشرة',
+    '', 'الواحدة', 'الثانية', 'الثالثة', 'الرابعة', 'الخامسة', 'السادسة',
+    'السابعة', 'الثامنة', 'التاسعة', 'العاشرة', 'الحادية عشرة', 'الثانية عشرة',
   ];
 
   String get _arabicTime {
@@ -63,6 +56,14 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
     return lesson.questions[index];
   }
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.smartReview) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _newChallenge());
+    }
+  }
+
   void _onChanged(int h, int m) {
     setState(() {
       _h = h;
@@ -79,6 +80,40 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
   }
 
   void _newChallenge() {
+    if (widget.smartReview) {
+      final progress = ref.read(progressNotifierProvider).valueOrNull;
+      if (progress == null) return;
+      final candidates = const SmartReviewEngine()
+          .buildSession(
+            units: CurriculumDatasource.instance.getUnits(),
+            progress: progress,
+          )
+          .where((candidate) => !_reviewedKeys.contains(candidate.questionKey))
+          .toList(growable: false);
+      if (candidates.isEmpty) {
+        setState(() {
+          _challengeLesson = null;
+          _challengeIndex = null;
+          _challengeAnswered = false;
+          _challengeCorrect = null;
+          _reviewComplete = _reviewedKeys.isNotEmpty;
+        });
+        return;
+      }
+      final candidate = candidates.first;
+      ref.read(soundServiceProvider).play(WaqtiSound.click);
+      setState(() {
+        _challengeLesson = candidate.lesson;
+        _challengeIndex = candidate.questionIndex;
+        _challengeAnswered = false;
+        _challengeCorrect = null;
+        _reviewComplete = false;
+        _h = 3;
+        _m = 0;
+      });
+      return;
+    }
+
     final lessons = CurriculumDatasource.instance
         .getUnits()
         .expand((unit) => unit.lessons)
@@ -114,10 +149,11 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
     });
 
     await ref.read(progressNotifierProvider.notifier).recordQuestionResult(
-      questionKey: 'question:${lesson.id}:$index',
-      skillKey: 'lesson:${lesson.id}',
+      questionKey: SmartReviewEngine.questionKey(lesson.id, index),
+      skillKey: SmartReviewEngine.skillKey(lesson.id),
       correct: ok,
     );
+    if (widget.smartReview) _reviewedKeys.add(SmartReviewEngine.questionKey(lesson.id, index));
 
     if (ok) {
       await ref.read(soundServiceProvider).correct();
@@ -141,9 +177,9 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
           foregroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
-          title: const Text(
-            '🕐 العب بالساعة',
-            style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
+          title: Text(
+            widget.smartReview ? '🧠 المراجعة الذكية' : '🕐 العب بالساعة',
+            style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
           ),
         ),
         body: Container(
@@ -166,9 +202,13 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                             ? ZaidMood.encouraging
                             : ZaidMood.happy,
                     size: 82,
-                    speech: _challengeQuestion == null
-                        ? 'حرّك العقارب واكتشف الوقت! 🎯'
-                        : 'تحدٍ سريع: اضبط الساعة على الوقت المطلوب! 🎯',
+                    speech: _reviewComplete
+                        ? 'أحسنت! أنهيت المراجعة المطلوبة 🎉'
+                        : _challengeQuestion == null
+                            ? 'حرّك العقارب واكتشف الوقت! 🎯'
+                            : widget.smartReview
+                                ? 'سنركز على هذا السؤال لأنه يحتاج تدريبًا أكثر. 🧠'
+                                : 'تحدٍ سريع: اضبط الساعة على الوقت المطلوب! 🎯',
                   ),
                   const SizedBox(height: 12),
                   Container(
@@ -177,40 +217,30 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 3)),
-                      ],
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 3))],
                     ),
-                    child: const Text(
-                      'اضبط الساعة ثم اقرأ الوقت بالعقارب والساعة الرقمية',
+                    child: Text(
+                      widget.smartReview
+                          ? 'الأسئلة تتغير حسب أخطائك، وعند تحسن مهارة ننتقل للأولوية التالية.'
+                          : 'اضبط الساعة ثم اقرأ الوقت بالعقارب والساعة الرقمية',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: WaqtiColors.textDark,
-                      ),
+                      style: const TextStyle(fontFamily: 'Cairo', fontSize: 14, fontWeight: FontWeight.w700, color: WaqtiColors.textDark),
                     ),
                   ),
                   const SizedBox(height: 12),
                   _buildChallengeCard(),
                   const SizedBox(height: 14),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(10, 18, 10, 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: WaqtiColors.primary.withValues(alpha: .12),
-                        width: 2,
+                  if (!_reviewComplete)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(10, 18, 10, 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: WaqtiColors.primary.withValues(alpha: .12), width: 2),
+                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 14, offset: Offset(0, 5))],
                       ),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black12, blurRadius: 14, offset: Offset(0, 5)),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
+                      child: Column(children: [
                         InteractiveClock(
                           key: ValueKey('${_challengeLesson?.id}:$_challengeIndex'),
                           initialHour: _h,
@@ -225,29 +255,13 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: WaqtiColors.sky,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Text(
-                            _arabicTime,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: WaqtiColors.primary,
-                            ),
-                          ),
+                          decoration: BoxDecoration(color: WaqtiColors.sky, borderRadius: BorderRadius.circular(14)),
+                          child: Text(_arabicTime, textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'Cairo', fontSize: 16, fontWeight: FontWeight.w700, color: WaqtiColors.primary)),
                         ),
                         const SizedBox(height: 10),
-                        const Text(
-                          '☝️ اسحب العقارب لتغيير الوقت',
-                          style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: WaqtiColors.textLight),
-                        ),
-                      ],
+                        const Text('☝️ اسحب العقارب لتغيير الوقت', style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: WaqtiColors.textLight)),
+                      ]),
                     ),
-                  ),
                   if (ads.homeBannerReady && ads.homeBanner != null) ...[
                     const SizedBox(height: 14),
                     SizedBox(
@@ -266,6 +280,27 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
   }
 
   Widget _buildChallengeCard() {
+    if (_reviewComplete) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(18), border: Border.all(color: WaqtiColors.mint, width: 2)),
+        child: Column(children: [
+          const Text('🎉', style: TextStyle(fontSize: 44)),
+          const SizedBox(height: 8),
+          const Text('انتهت المراجعة الذكية', style: TextStyle(fontFamily: 'Cairo', fontSize: 19, fontWeight: FontWeight.w800, color: WaqtiColors.textDark)),
+          const SizedBox(height: 6),
+          Text('راجعنا ${_reviewedKeys.length} سؤالًا مرتبطًا بأخطائك.', textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, color: WaqtiColors.textLight)),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.check),
+            label: const Text('العودة للتقدم', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700)),
+          ),
+        ]),
+      );
+    }
+
     final question = _challengeQuestion;
     if (question == null) {
       return SizedBox(
@@ -273,16 +308,8 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
         child: ElevatedButton.icon(
           onPressed: _newChallenge,
           icon: const Icon(Icons.play_arrow_rounded),
-          label: const Text(
-            'ابدأ تحدي قراءة الساعة',
-            style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: WaqtiColors.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          ),
+          label: Text(widget.smartReview ? 'ابدأ المراجعة الذكية' : 'ابدأ تحدي قراءة الساعة', style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800)),
+          style: ElevatedButton.styleFrom(backgroundColor: WaqtiColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
         ),
       );
     }
@@ -297,72 +324,34 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _challengeCorrect == true
-            ? const Color(0xFFE8F5E9)
-            : _challengeCorrect == false
-                ? const Color(0xFFFFF3F1)
-                : Colors.white,
+        color: _challengeCorrect == true ? const Color(0xFFE8F5E9) : _challengeCorrect == false ? const Color(0xFFFFF3F1) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: _challengeCorrect == true
-              ? WaqtiColors.mint
-              : _challengeCorrect == false
-                  ? WaqtiColors.coral
-                  : WaqtiColors.primary.withValues(alpha: .15),
-          width: 2,
-        ),
+        border: Border.all(color: _challengeCorrect == true ? WaqtiColors.mint : _challengeCorrect == false ? WaqtiColors.coral : WaqtiColors.primary.withValues(alpha: .15), width: 2),
       ),
-      child: Column(
-        children: [
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: WaqtiColors.textDark,
+      child: Column(children: [
+        Text(message, textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.w800, color: WaqtiColors.textDark)),
+        const SizedBox(height: 10),
+        if (!_challengeAnswered)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _checkChallenge,
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('تحقق من إجابتي', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800)),
+              style: ElevatedButton.styleFrom(backgroundColor: WaqtiColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            ),
+          )
+        else
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _newChallenge,
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(widget.smartReview ? 'السؤال التالي' : 'تحدٍ جديد', style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800)),
+              style: OutlinedButton.styleFrom(foregroundColor: WaqtiColors.primary, side: const BorderSide(color: WaqtiColors.primary), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
             ),
           ),
-          const SizedBox(height: 10),
-          if (!_challengeAnswered)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _checkChallenge,
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text(
-                  'تحقق من إجابتي',
-                  style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: WaqtiColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _newChallenge,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text(
-                  'تحدٍ جديد',
-                  style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: WaqtiColors.primary,
-                  side: const BorderSide(color: WaqtiColors.primary),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-            ),
-        ],
-      ),
+      ]),
     );
   }
 }
