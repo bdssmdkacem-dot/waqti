@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_theme.dart';
-import '../../curriculum/data/datasources/curriculum_datasource.dart';
-import '../../curriculum/domain/entities/curriculum_entities.dart';
+import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../features/curriculum/data/datasources/curriculum_datasource.dart';
+import '../../../../features/curriculum/domain/entities/curriculum_entities.dart';
 import '../providers/progress_provider.dart';
 
 /// Smart Review selects the lesson associated with the child's most frequent
@@ -17,9 +18,7 @@ class SmartReviewPage extends ConsumerWidget {
     final progress = ref.watch(progressNotifierProvider).valueOrNull;
     final units = CurriculumDatasource.instance.getUnits();
     final weakSkill = progress?.weakestSkill;
-    final target = weakSkill == null
-        ? null
-        : _findLesson(units, weakSkill);
+    final target = weakSkill == null ? null : _findLesson(units, weakSkill);
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -33,7 +32,7 @@ class SmartReviewPage extends ConsumerWidget {
         body: progress == null
             ? const Center(child: CircularProgressIndicator())
             : target == null
-                ? _EmptyReview()
+                ? const _EmptyReview()
                 : _ReviewCard(unit: target.unit, lesson: target.lesson, errors: progress.skillErrors[weakSkill] ?? 0),
       ),
     );
@@ -61,12 +60,12 @@ class _ReviewCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: [
         const SizedBox(height: 20),
-        Text('🎯', textAlign: TextAlign.center, style: const TextStyle(fontSize: 54)),
+        const Text('🎯', textAlign: TextAlign.center, style: TextStyle(fontSize: 54)),
         const SizedBox(height: 14),
         const Text('وجدنا شيئًا يحتاج إلى تدريب إضافي!', textAlign: TextAlign.center,
             style: TextStyle(fontFamily: 'Cairo', fontSize: 22, fontWeight: FontWeight.w800, color: WaqtiColors.textDark)),
         const SizedBox(height: 8),
-        Text('سنراجع معك المهارة التي أخطأت فيها أكثر.', textAlign: TextAlign.center,
+        const Text('سنراجع معك المهارة التي أخطأت فيها أكثر.', textAlign: TextAlign.center,
             style: TextStyle(fontFamily: 'Cairo', fontSize: 15, color: WaqtiColors.textLight)),
         const SizedBox(height: 28),
         Container(
@@ -95,6 +94,8 @@ class _ReviewCard extends StatelessWidget {
 }
 
 class _EmptyReview extends StatelessWidget {
+  const _EmptyReview();
+
   @override
   Widget build(BuildContext context) => Center(
     child: Padding(
