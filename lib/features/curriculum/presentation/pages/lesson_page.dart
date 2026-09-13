@@ -37,6 +37,11 @@ class _LessonPageState extends ConsumerState<LessonPage> {
   String? hintText;
   int setH = 12, setM = 0;
 
+  // Keep generated answer order per question so a setState/rebuild after
+  // confirmation never reshuffles the choices the learner is looking at.
+  final Map<int, List<String>> _mcChoices = {};
+  final Map<int, List<_DigChoice>> _digitalChoices = {};
+
   int get totalQ => widget.lesson.totalQuestions;
   Color get color => widget.unit.color;
   SoundService get _sound => ref.read(soundServiceProvider);
@@ -306,7 +311,7 @@ class _LessonPageState extends ConsumerState<LessonPage> {
   }
 
   Widget _buildMC(TimeQuestion q) {
-    final choices = _genChoices(q.hour, q.minute);
+    final choices = _mcChoices.putIfAbsent(qi, () => _genChoices(q.hour, q.minute));
     return Column(children: [
       AnalogClock(hour: q.hour, minute: q.minute, size: WaqtiSize.lessonClockSize(context), color: color),
       const SizedBox(height: 20),
@@ -333,7 +338,7 @@ class _LessonPageState extends ConsumerState<LessonPage> {
 
   Widget _buildDigitalMC(TimeQuestion q) {
     final h12 = q.hour > 12 ? q.hour - 12 : (q.hour == 0 ? 12 : q.hour);
-    final choices = _genDigChoices(q.hour, q.minute);
+    final choices = _digitalChoices.putIfAbsent(qi, () => _genDigChoices(q.hour, q.minute));
     return Column(children: [
       DigitalClock(hour: h12, minute: q.minute, fontSize: 40),
       const SizedBox(height: 10),
