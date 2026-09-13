@@ -37,6 +37,16 @@ class _InteractiveClockState extends State<InteractiveClock> {
     _m = widget.initialMinute;
   }
 
+  @override
+  void didUpdateWidget(covariant InteractiveClock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialHour != widget.initialHour || oldWidget.initialMinute != widget.initialMinute) {
+      _h = widget.initialHour;
+      _m = widget.initialMinute;
+      _dragging = null;
+    }
+  }
+
   double _angleDeg(Offset local) {
     final cx = widget.size / 2, cy = widget.size / 2;
     return (math.atan2(local.dy - cy, local.dx - cx) * 180 / math.pi + 90 + 360) % 360;
@@ -49,21 +59,30 @@ class _InteractiveClockState extends State<InteractiveClock> {
 
   void _onStart(Offset local) {
     final deg = _angleDeg(local);
-    final hourDeg = ((_h % 12) * 30 + _m * .5 + 360) % 360;
-    final minDeg = (_m * 6.0 + 360) % 360;
-    _dragging = _diff(deg, hourDeg) < _diff(deg, minDeg) ? 'hour' : 'minute';
+    final hourDeg = ((_h % 12) * 30 + _m * .5) % 360;
+    final minDeg = (_m * 6.0) % 360;
+    final hourDistance = _diff(deg, hourDeg);
+    final minuteDistance = _diff(deg, minDeg);
+
+    // The hour hand is shorter and thicker; give it priority when the
+    // touch is genuinely closer to it, otherwise select the minute hand.
+    _dragging = hourDistance <= minuteDistance ? 'hour' : 'minute';
     _onMove(local);
   }
 
   void _onMove(Offset local) {
     if (_dragging == null) return;
     final deg = _angleDeg(local);
+
     setState(() {
       if (_dragging == 'minute') {
-        _m = (deg / 6).round() % 60;
+        _m = ((deg / 6).round() % 60);
       } else {
-        int h = (deg / 30).round() % 12;
-        _h = h == 0 ? 12 : h;
+        // Remove the minute contribution so the hour hand stays consistent
+        // with the real clock: at 3:30 the hand is halfway between 3 and 4.
+        final adjusted = (deg - _m * .5 + 360) % 360;
+        final h12 = (adjusted / 30).round() % 12;
+        _h = h12 == 0 ? 12 : h12;
       }
     });
     widget.onChanged(_h, _m);
@@ -71,9 +90,11 @@ class _InteractiveClockState extends State<InteractiveClock> {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
     onPanStart: (d) => _onStart(d.localPosition),
     onPanUpdate: (d) => _onMove(d.localPosition),
     onPanEnd: (_) => _dragging = null,
+    onPanCancel: () => _dragging = null,
     child: AnalogClock(hour: _h, minute: _m, size: widget.size, color: widget.color),
   );
 }
