@@ -46,6 +46,30 @@ jobs:
       - name: Run Tests
         run: flutter test
 
+      - name: Generate Android launcher icons from current Waqti logo
+        run: |
+          set -e
+          ICON="assets/images/store_icon_512.png"
+          test -s "$ICON"
+
+          declare -A SIZES=(
+            [mipmap-mdpi]=48
+            [mipmap-hdpi]=72
+            [mipmap-xhdpi]=96
+            [mipmap-xxhdpi]=144
+            [mipmap-xxxhdpi]=192
+          )
+
+          for DIR in "${!SIZES[@]}"; do
+            SIZE="${SIZES[$DIR]}"
+            TARGET="android/app/src/main/res/$DIR"
+            mkdir -p "$TARGET"
+            convert "$ICON" -resize "${SIZE}x${SIZE}" -gravity center -extent "${SIZE}x${SIZE}" "$TARGET/ic_launcher.png"
+            convert "$ICON" -resize "${SIZE}x${SIZE}" -gravity center -extent "${SIZE}x${SIZE}" "$TARGET/ic_launcher_round.png"
+          done
+
+          file android/app/src/main/res/mipmap-*/ic_launcher.png
+
       - name: Setup Keystore
         if: github.ref == 'refs/heads/main'
         run: |
