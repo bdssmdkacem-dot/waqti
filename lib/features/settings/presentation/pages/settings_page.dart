@@ -78,9 +78,7 @@ class SettingsPage extends ConsumerWidget {
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const _SectionHeader(Icons.info_outline_rounded, 'عن التطبيق'),
               const SizedBox(height: WaqtiSpacing.md),
-              const _InfoRow('الإصدار', '3.0.0'),
-              const _InfoRow('المطوّر', 'Daryne'),
-              const _InfoRow('البريد', 'support@waqti-app.com'),
+              const _InfoRow('الإصدار', '3.0.1'),
             ])),
             const SizedBox(height: WaqtiSpacing.md),
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
