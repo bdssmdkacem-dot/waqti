@@ -24,7 +24,6 @@ class FreePlayPage extends ConsumerStatefulWidget {
 
 class _FreePlayPageState extends ConsumerState<FreePlayPage> {
   int _h = 3, _m = 0;
-  bool _throttle = false;
   WaqtiLesson? _challengeLesson;
   int? _challengeIndex;
   bool _challengeAnswered = false;
@@ -64,19 +63,14 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
     }
   }
 
+  // Use the exact same InteractiveClock as the lessons. The clock itself
+  // owns hand selection/dragging; this callback only receives the new time.
   void _onChanged(int h, int m) {
     setState(() {
       _h = h;
       _m = m;
       if (!_challengeAnswered) _challengeCorrect = null;
     });
-    if (!_throttle) {
-      _throttle = true;
-      ref.read(soundServiceProvider).play(WaqtiSound.click);
-      Future.delayed(const Duration(milliseconds: 80), () {
-        if (mounted) _throttle = false;
-      });
-    }
   }
 
   void _newChallenge() {
@@ -101,7 +95,6 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
         return;
       }
       final candidate = candidates.first;
-      ref.read(soundServiceProvider).play(WaqtiSound.click);
       setState(() {
         _challengeLesson = candidate.lesson;
         _challengeIndex = candidate.questionIndex;
@@ -125,7 +118,6 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
     final lesson = lessons[random.nextInt(lessons.length)];
     final index = random.nextInt(lesson.questions.length);
 
-    ref.read(soundServiceProvider).play(WaqtiSound.click);
     setState(() {
       _challengeLesson = lesson;
       _challengeIndex = index;
@@ -347,8 +339,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
             child: OutlinedButton.icon(
               onPressed: _newChallenge,
               icon: const Icon(Icons.refresh_rounded),
-              label: Text(widget.smartReview ? 'السؤال التالي' : 'تحدٍ جديد', style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800)),
-              style: OutlinedButton.styleFrom(foregroundColor: WaqtiColors.primary, side: const BorderSide(color: WaqtiColors.primary), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              label: const Text('تحدٍ جديد', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700)),
             ),
           ),
       ]),
