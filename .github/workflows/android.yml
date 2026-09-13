@@ -60,12 +60,19 @@ jobs:
             [mipmap-xxxhdpi]=192
           )
 
+          # Ubuntu runners do not guarantee the ImageMagick `convert` wrapper.
+          # Use the modern `magick` command and fail clearly if ImageMagick is absent.
+          if ! command -v magick >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y imagemagick
+          fi
+
           for DIR in "${!SIZES[@]}"; do
             SIZE="${SIZES[$DIR]}"
             TARGET="android/app/src/main/res/$DIR"
             mkdir -p "$TARGET"
-            convert "$ICON" -resize "${SIZE}x${SIZE}" -gravity center -extent "${SIZE}x${SIZE}" "$TARGET/ic_launcher.png"
-            convert "$ICON" -resize "${SIZE}x${SIZE}" -gravity center -extent "${SIZE}x${SIZE}" "$TARGET/ic_launcher_round.png"
+            magick "$ICON" -resize "${SIZE}x${SIZE}" -gravity center -extent "${SIZE}x${SIZE}" "$TARGET/ic_launcher.png"
+            magick "$ICON" -resize "${SIZE}x${SIZE}" -gravity center -extent "${SIZE}x${SIZE}" "$TARGET/ic_launcher_round.png"
           done
 
           file android/app/src/main/res/mipmap-*/ic_launcher.png
