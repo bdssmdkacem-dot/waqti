@@ -70,39 +70,57 @@ class _InteractiveClockState extends State<InteractiveClock> {
     final center = Offset(c, c);
     final hourDeg = ((_h % 12) * 30 + _m * .5) % 360;
     final minuteDeg = (_m * 6.0) % 360;
-    final hourEnd = _handEnd(hourDeg, widget.size * .235);
-    final minuteEnd = _handEnd(minuteDeg, widget.size * .335);
+    final hourEnd = _handEnd(hourDeg, widget.size * .47);
+    final minuteEnd = _handEnd(minuteDeg, widget.size * .67);
     final hourDistance = _pointToSegment(local, center, hourEnd);
     final minuteDistance = _pointToSegment(local, center, minuteEnd);
+    final distanceFromCenter = (local - center).distance;
 
-    // Select the hand the user actually touched, not merely the closest angle.
-    // This makes the shorter hour hand reliably draggable even when the two
-    // hands point in similar directions.
-    final hourHit = hourDistance <= widget.size * .085;
-    final minuteHit = minuteDistance <= widget.size * .065;
+    // The lesson clock is deliberately forgiving: the learner does not have
+    // to touch the thin painted line exactly. The visible hour hand is the
+    // shorter hand, while the minute hand reaches farther toward the rim.
+    final hourHit = hourDistance <= widget.size * .12;
+    final minuteHit = minuteDistance <= widget.size * .10;
+
     if (hourHit && !minuteHit) {
       _dragging = 'hour';
     } else if (minuteHit && !hourHit) {
       _dragging = 'minute';
+    } else if (distanceFromCenter <= widget.size * .52) {
+      // Inner half of the clock: prefer the short hour hand.
+      _dragging = 'hour';
     } else {
-      _dragging = hourDistance <= minuteDistance ? 'hour' : 'minute';
+      // Outer half: prefer the long minute hand.
+      _dragging = 'minute';
     }
+
     _onMove(local);
   }
 
   void _onMove(Offset local) {
     if (_dragging == null) return;
     final deg = _angleDeg(local);
-    setState(() {
-      if (_dragging == 'minute') {
-        _m = (deg / 6).round() % 60;
-      } else {
-        final adjusted = (deg - _m * .5 + 360) % 360;
-        final h12 = (adjusted / 30).round() % 12;
-        _h = h12 == 0 ? 12 : h12;
-      }
-    });
-    widget.onChanged(_h, _m);
+    var changed = false;
+    int nextH = _h;
+    int nextM = _m;
+
+    if (_dragging == 'minute') {
+      nextM = (deg / 6).round() % 60;
+      changed = nextM != _m;
+    } else {
+      final adjusted = (deg - _m * .5 + 360) % 360;
+      final h12 = (adjusted / 30).round() % 12;
+      nextH = h12 == 0 ? 12 : h12;
+      changed = nextH != _h;
+    }
+
+    if (changed) {
+      setState(() {
+        _h = nextH;
+        _m = nextM;
+      });
+      widget.onChanged(_h, _m);
+    }
   }
 
   @override
