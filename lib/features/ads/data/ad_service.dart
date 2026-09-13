@@ -56,7 +56,7 @@ class AdService extends ChangeNotifier {
       : (Platform.isIOS ? AdMobIds.iosRewarded : AdMobIds.androidRewarded);
   static String get _rewardedHintId => kDebugMode
       ? AdMobIds.testRewarded
-      : (Platform.isIOS ? AdMobIds.iosRewarded : AdMobIds.androidRewardedHint);
+      : (Platform.isIOS ? AdMobIds.testRewarded : AdMobIds.androidRewardedHint);
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -69,7 +69,6 @@ class AdService extends ChangeNotifier {
       debugPrint('Waqti AdMob initialized: ${status.adapterStatuses}');
       _loadAll();
     } catch (e, st) {
-      // AdMob must never be allowed to prevent the app from starting.
       debugPrint('Waqti AdMob initialization failed: $e\n$st');
       _initialized = false;
     }
@@ -79,8 +78,8 @@ class AdService extends ChangeNotifier {
     loadHomeBanner();
     loadLessonBanner();
     loadInterstitial();
-    loadRewarded();
-    loadRewardedHint();
+    unawaited(loadRewarded());
+    unawaited(loadRewardedHint());
   }
 
   void _recordError(String type, LoadAdError error) {
@@ -140,26 +139,61 @@ class AdService extends ChangeNotifier {
   }
 
   Future<void> loadRewarded() async {
-    _rewarded?.dispose(); _rewarded = null; _rewardedReady = false;
-    RewardedAd.load(adUnitId: _rewardedId, request: const AdRequest(),
+    _rewarded?.dispose();
+    _rewarded = null;
+    _rewardedReady = false;
+    final completer = Completer<void>();
+    RewardedAd.load(
+      adUnitId: _rewardedId,
+      request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) { _rewarded = ad; _rewardedReady = true; _recordLoaded('Rewarded', _rewardedId); },
-        onAdFailedToLoad: (error) { _rewardedReady = false; _recordError('Rewarded', error); },
-      ));
+        onAdLoaded: (ad) {
+          _rewarded = ad;
+          _rewardedReady = true;
+          _recordLoaded('Rewarded', _rewardedId);
+          if (!completer.isCompleted) completer.complete();
+        },
+        onAdFailedToLoad: (error) {
+          _rewardedReady = false;
+          _recordError('Rewarded', error);
+          if (!completer.isCompleted) completer.complete();
+        },
+      ),
+    );
+    await completer.future.timeout(const Duration(seconds: 10), onTimeout: () {});
   }
 
   Future<void> loadRewardedHint() async {
-    _rewardedHint?.dispose(); _rewardedHint = null; _rewardedHintReady = false;
-    RewardedAd.load(adUnitId: _rewardedHintId, request: const AdRequest(),
+    _rewardedHint?.dispose();
+    _rewardedHint = null;
+    _rewardedHintReady = false;
+    final completer = Completer<void>();
+    RewardedAd.load(
+      adUnitId: _rewardedHintId,
+      request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) { _rewardedHint = ad; _rewardedHintReady = true; _recordLoaded('Rewarded Hint', _rewardedHintId); },
-        onAdFailedToLoad: (error) { _rewardedHintReady = false; _recordError('Rewarded Hint', error); },
-      ));
+        onAdLoaded: (ad) {
+          _rewardedHint = ad;
+          _rewardedHintReady = true;
+          _recordLoaded('Rewarded Hint', _rewardedHintId);
+          if (!completer.isCompleted) completer.complete();
+        },
+        onAdFailedToLoad: (error) {
+          _rewardedHintReady = false;
+          _recordError('Rewarded Hint', error);
+          if (!completer.isCompleted) completer.complete();
+        },
+      ),
+    );
+    await completer.future.timeout(const Duration(seconds: 10), onTimeout: () {});
   }
 
   Future<void> onLessonComplete() async {
     _lessonCompletionsSinceInterstitial++;
-    if (_lessonCompletionsSinceInterstitial < _interstitialFrequency) { if (!_interstitialReady) loadInterstitial(); return; }
+    if (_lessonCompletionsSinceInterstitial < _interstitialFrequency) {
+      if (!_interstitialReady) loadInterstitial();
+      return;
+    }
     _lessonCompletionsSinceInterstitial = 0;
     final ad = _interstitial;
     if (ad == null || !_interstitialReady) { loadInterstitial(); return; }
@@ -172,24 +206,30 @@ class AdService extends ChangeNotifier {
   }
 
   Future<bool> showRewarded({required void Function(int amount) onRewarded}) async {
+    if (_rewarded == null || !_rewardedReady) {
+      await loadRewarded();
+    }
     final ad = _rewarded;
-    if (ad == null || !_rewardedReady) { await loadRewarded(); return false; }
+    if (ad == null || !_rewardedReady) return false;
     _rewarded = null; _rewardedReady = false;
     ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) { ad.dispose(); loadRewarded(); },
-      onAdFailedToShowFullScreenContent: (ad, error) { debugPrint('Waqti Rewarded show failed: $error'); ad.dispose(); loadRewarded(); },
+      onAdDismissedFullScreenContent: (ad) { ad.dispose(); unawaited(loadRewarded()); },
+      onAdFailedToShowFullScreenContent: (ad, error) { debugPrint('Waqti Rewarded show failed: $error'); ad.dispose(); unawaited(loadRewarded()); },
     );
     await ad.show(onUserEarnedReward: (_, reward) => onRewarded(reward.amount.toInt()));
     return true;
   }
 
   Future<bool> showRewardedHint({required void Function(int amount) onRewarded}) async {
+    if (_rewardedHint == null || !_rewardedHintReady) {
+      await loadRewardedHint();
+    }
     final ad = _rewardedHint;
-    if (ad == null || !_rewardedHintReady) { await loadRewardedHint(); return false; }
+    if (ad == null || !_rewardedHintReady) return false;
     _rewardedHint = null; _rewardedHintReady = false;
     ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) { ad.dispose(); loadRewardedHint(); },
-      onAdFailedToShowFullScreenContent: (ad, error) { debugPrint('Waqti Rewarded Hint show failed: $error'); ad.dispose(); loadRewardedHint(); },
+      onAdDismissedFullScreenContent: (ad) { ad.dispose(); unawaited(loadRewardedHint()); },
+      onAdFailedToShowFullScreenContent: (ad, error) { debugPrint('Waqti Rewarded Hint show failed: $error'); ad.dispose(); unawaited(loadRewardedHint()); },
     );
     await ad.show(onUserEarnedReward: (_, reward) => onRewarded(reward.amount.toInt()));
     return true;
@@ -197,6 +237,12 @@ class AdService extends ChangeNotifier {
 
   @override
   void dispose() {
-    _retryTimer?.cancel(); _homeBanner?.dispose(); _lessonBanner?.dispose(); _interstitial?.dispose(); _rewarded?.dispose(); _rewardedHint?.dispose(); super.dispose();
+    _retryTimer?.cancel();
+    _homeBanner?.dispose();
+    _lessonBanner?.dispose();
+    _interstitial?.dispose();
+    _rewarded?.dispose();
+    _rewardedHint?.dispose();
+    super.dispose();
   }
 }
