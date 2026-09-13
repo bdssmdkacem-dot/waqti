@@ -34,7 +34,6 @@ class AdService extends ChangeNotifier {
 
   String? get lastError => _errors.isEmpty ? null : _errors.values.last;
   String? errorFor(String type) => _errors[type];
-
   bool get homeBannerReady => _homeBannerReady;
   bool get lessonBannerReady => _lessonBannerReady;
   bool get interstitialReady => _interstitialReady;
@@ -46,49 +45,34 @@ class AdService extends ChangeNotifier {
   static String get _bannerId => kDebugMode
       ? AdMobIds.testBanner
       : (Platform.isIOS ? AdMobIds.iosBannerHome : AdMobIds.androidBannerHome);
-
   static String get _lessonBannerId => kDebugMode
       ? AdMobIds.testBanner
-      : (Platform.isIOS
-          ? AdMobIds.iosBannerLesson
-          : AdMobIds.androidBannerLesson);
-
+      : (Platform.isIOS ? AdMobIds.iosBannerLesson : AdMobIds.androidBannerLesson);
   static String get _interId => kDebugMode
       ? AdMobIds.testInterstitial
-      : (Platform.isIOS
-          ? AdMobIds.iosInterstitial
-          : AdMobIds.androidInterstitial);
-
+      : (Platform.isIOS ? AdMobIds.iosInterstitial : AdMobIds.androidInterstitial);
   static String get _rewardedId => kDebugMode
       ? AdMobIds.testRewarded
       : (Platform.isIOS ? AdMobIds.iosRewarded : AdMobIds.androidRewarded);
-
   static String get _rewardedHintId => kDebugMode
       ? AdMobIds.testRewarded
-      : (Platform.isIOS
-          ? AdMobIds.iosRewarded
-          : AdMobIds.androidRewardedHint);
+      : (Platform.isIOS ? AdMobIds.iosRewarded : AdMobIds.androidRewardedHint);
 
   Future<void> initialize() async {
     if (_initialized) return;
-
-    await MobileAds.instance.updateRequestConfiguration(
-      RequestConfiguration(
-        maxAdContentRating: MaxAdContentRating.g,
-      ),
-    );
-
-    final status = await MobileAds.instance.initialize();
-    _initialized = true;
-    debugPrint('Waqti AdMob initialized: ${status.adapterStatuses}');
-    for (final entry in status.adapterStatuses.entries) {
-      debugPrint(
-        'Waqti AdMob adapter ${entry.key}: '
-        'state=${entry.value.state}, description=${entry.value.description}, '
-        'latency=${entry.value.latency}',
+    try {
+      await MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(maxAdContentRating: MaxAdContentRating.g),
       );
+      final status = await MobileAds.instance.initialize();
+      _initialized = true;
+      debugPrint('Waqti AdMob initialized: ${status.adapterStatuses}');
+      _loadAll();
+    } catch (e, st) {
+      // AdMob must never be allowed to prevent the app from starting.
+      debugPrint('Waqti AdMob initialization failed: $e\n$st');
+      _initialized = false;
     }
-    _loadAll();
   }
 
   void _loadAll() {
@@ -100,11 +84,8 @@ class AdService extends ChangeNotifier {
   }
 
   void _recordError(String type, LoadAdError error) {
-    final message =
-        '$type: code=${error.code}, domain=${error.domain}, '
-        'message=${error.message}, responseInfo=${error.responseInfo}';
-    _errors[type] = message;
-    debugPrint('Waqti AdMob $message');
+    _errors[type] = '$type: code=${error.code}, domain=${error.domain}, message=${error.message}';
+    debugPrint('Waqti AdMob ${_errors[type]}');
     notifyListeners();
     _scheduleRetry();
   }
@@ -127,20 +108,10 @@ class AdService extends ChangeNotifier {
     _homeBanner?.dispose();
     _homeBannerReady = false;
     _homeBanner = BannerAd(
-      adUnitId: _bannerId,
-      size: AdSize.banner,
-      request: const AdRequest(),
+      adUnitId: _bannerId, size: AdSize.banner, request: const AdRequest(),
       listener: BannerAdListener(
-        onAdLoaded: (_) {
-          _homeBannerReady = true;
-          _recordLoaded('Home Banner', _bannerId);
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          _homeBanner = null;
-          _homeBannerReady = false;
-          _recordError('Home Banner', error);
-        },
+        onAdLoaded: (_) { _homeBannerReady = true; _recordLoaded('Home Banner', _bannerId); },
+        onAdFailedToLoad: (ad, error) { ad.dispose(); _homeBanner = null; _homeBannerReady = false; _recordError('Home Banner', error); },
       ),
     )..load();
   }
@@ -149,186 +120,83 @@ class AdService extends ChangeNotifier {
     _lessonBanner?.dispose();
     _lessonBannerReady = false;
     _lessonBanner = BannerAd(
-      adUnitId: _lessonBannerId,
-      size: AdSize.banner,
-      request: const AdRequest(),
+      adUnitId: _lessonBannerId, size: AdSize.banner, request: const AdRequest(),
       listener: BannerAdListener(
-        onAdLoaded: (_) {
-          _lessonBannerReady = true;
-          _recordLoaded('Lesson Banner', _lessonBannerId);
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          _lessonBanner = null;
-          _lessonBannerReady = false;
-          _recordError('Lesson Banner', error);
-        },
+        onAdLoaded: (_) { _lessonBannerReady = true; _recordLoaded('Lesson Banner', _lessonBannerId); },
+        onAdFailedToLoad: (ad, error) { ad.dispose(); _lessonBanner = null; _lessonBannerReady = false; _recordError('Lesson Banner', error); },
       ),
     )..load();
   }
 
   void loadInterstitial() {
-    _interstitial?.dispose();
-    _interstitial = null;
-    _interstitialReady = false;
+    _interstitial?.dispose(); _interstitial = null; _interstitialReady = false;
     InterstitialAd.load(
-      adUnitId: _interId,
-      request: const AdRequest(),
+      adUnitId: _interId, request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (ad) {
-          _interstitial = ad;
-          _interstitialReady = true;
-          _recordLoaded('Interstitial', _interId);
-        },
-        onAdFailedToLoad: (error) {
-          _interstitialReady = false;
-          _recordError('Interstitial', error);
-        },
+        onAdLoaded: (ad) { _interstitial = ad; _interstitialReady = true; _recordLoaded('Interstitial', _interId); },
+        onAdFailedToLoad: (error) { _interstitialReady = false; _recordError('Interstitial', error); },
       ),
     );
   }
 
   Future<void> loadRewarded() async {
-    _rewarded?.dispose();
-    _rewarded = null;
-    _rewardedReady = false;
-    RewardedAd.load(
-      adUnitId: _rewardedId,
-      request: const AdRequest(),
+    _rewarded?.dispose(); _rewarded = null; _rewardedReady = false;
+    RewardedAd.load(adUnitId: _rewardedId, request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _rewarded = ad;
-          _rewardedReady = true;
-          _recordLoaded('Rewarded', _rewardedId);
-        },
-        onAdFailedToLoad: (error) {
-          _rewardedReady = false;
-          _recordError('Rewarded', error);
-        },
-      ),
-    );
+        onAdLoaded: (ad) { _rewarded = ad; _rewardedReady = true; _recordLoaded('Rewarded', _rewardedId); },
+        onAdFailedToLoad: (error) { _rewardedReady = false; _recordError('Rewarded', error); },
+      ));
   }
 
   Future<void> loadRewardedHint() async {
-    _rewardedHint?.dispose();
-    _rewardedHint = null;
-    _rewardedHintReady = false;
-    RewardedAd.load(
-      adUnitId: _rewardedHintId,
-      request: const AdRequest(),
+    _rewardedHint?.dispose(); _rewardedHint = null; _rewardedHintReady = false;
+    RewardedAd.load(adUnitId: _rewardedHintId, request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _rewardedHint = ad;
-          _rewardedHintReady = true;
-          _recordLoaded('Rewarded Hint', _rewardedHintId);
-        },
-        onAdFailedToLoad: (error) {
-          _rewardedHintReady = false;
-          _recordError('Rewarded Hint', error);
-        },
-      ),
-    );
+        onAdLoaded: (ad) { _rewardedHint = ad; _rewardedHintReady = true; _recordLoaded('Rewarded Hint', _rewardedHintId); },
+        onAdFailedToLoad: (error) { _rewardedHintReady = false; _recordError('Rewarded Hint', error); },
+      ));
   }
 
   Future<void> onLessonComplete() async {
     _lessonCompletionsSinceInterstitial++;
-    if (_lessonCompletionsSinceInterstitial < _interstitialFrequency) {
-      if (!_interstitialReady) loadInterstitial();
-      return;
-    }
-
+    if (_lessonCompletionsSinceInterstitial < _interstitialFrequency) { if (!_interstitialReady) loadInterstitial(); return; }
     _lessonCompletionsSinceInterstitial = 0;
-
     final ad = _interstitial;
-    if (ad == null || !_interstitialReady) {
-      loadInterstitial();
-      return;
-    }
-
-    _interstitial = null;
-    _interstitialReady = false;
+    if (ad == null || !_interstitialReady) { loadInterstitial(); return; }
+    _interstitial = null; _interstitialReady = false;
     ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        loadInterstitial();
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        debugPrint('Waqti Interstitial show failed: $error');
-        ad.dispose();
-        loadInterstitial();
-      },
+      onAdDismissedFullScreenContent: (ad) { ad.dispose(); loadInterstitial(); },
+      onAdFailedToShowFullScreenContent: (ad, error) { debugPrint('Waqti Interstitial show failed: $error'); ad.dispose(); loadInterstitial(); },
     );
     await ad.show();
   }
 
-  Future<bool> showRewarded({
-    required void Function(int amount) onRewarded,
-  }) async {
+  Future<bool> showRewarded({required void Function(int amount) onRewarded}) async {
     final ad = _rewarded;
-    if (ad == null || !_rewardedReady) {
-      await loadRewarded();
-      return false;
-    }
-
-    _rewarded = null;
-    _rewardedReady = false;
+    if (ad == null || !_rewardedReady) { await loadRewarded(); return false; }
+    _rewarded = null; _rewardedReady = false;
     ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        loadRewarded();
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        debugPrint('Waqti Rewarded show failed: $error');
-        ad.dispose();
-        loadRewarded();
-      },
+      onAdDismissedFullScreenContent: (ad) { ad.dispose(); loadRewarded(); },
+      onAdFailedToShowFullScreenContent: (ad, error) { debugPrint('Waqti Rewarded show failed: $error'); ad.dispose(); loadRewarded(); },
     );
-    await ad.show(
-      onUserEarnedReward: (_, reward) {
-        onRewarded(reward.amount.toInt());
-      },
-    );
+    await ad.show(onUserEarnedReward: (_, reward) => onRewarded(reward.amount.toInt()));
     return true;
   }
 
-  Future<bool> showRewardedHint({
-    required void Function(int amount) onRewarded,
-  }) async {
+  Future<bool> showRewardedHint({required void Function(int amount) onRewarded}) async {
     final ad = _rewardedHint;
-    if (ad == null || !_rewardedHintReady) {
-      await loadRewardedHint();
-      return false;
-    }
-
-    _rewardedHint = null;
-    _rewardedHintReady = false;
+    if (ad == null || !_rewardedHintReady) { await loadRewardedHint(); return false; }
+    _rewardedHint = null; _rewardedHintReady = false;
     ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        loadRewardedHint();
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        debugPrint('Waqti Rewarded Hint show failed: $error');
-        ad.dispose();
-        loadRewardedHint();
-      },
+      onAdDismissedFullScreenContent: (ad) { ad.dispose(); loadRewardedHint(); },
+      onAdFailedToShowFullScreenContent: (ad, error) { debugPrint('Waqti Rewarded Hint show failed: $error'); ad.dispose(); loadRewardedHint(); },
     );
-    await ad.show(
-      onUserEarnedReward: (_, reward) {
-        onRewarded(reward.amount.toInt());
-      },
-    );
+    await ad.show(onUserEarnedReward: (_, reward) => onRewarded(reward.amount.toInt()));
     return true;
   }
 
   @override
   void dispose() {
-    _retryTimer?.cancel();
-    _homeBanner?.dispose();
-    _lessonBanner?.dispose();
-    _interstitial?.dispose();
-    _rewarded?.dispose();
-    _rewardedHint?.dispose();
-    super.dispose();
+    _retryTimer?.cancel(); _homeBanner?.dispose(); _lessonBanner?.dispose(); _interstitial?.dispose(); _rewarded?.dispose(); _rewardedHint?.dispose(); super.dispose();
   }
 }
