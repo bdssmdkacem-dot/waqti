@@ -23,20 +23,30 @@ Future<void> main() async {
     statusBarBrightness: Brightness.dark,
   ));
 
-  // Do not block the first frame on audio/AdMob initialization.
-  // A failed optional service must never prevent Waqti from opening.
+  // Do not block the first frame on optional services.
   runApp(const ProviderScope(child: WaqtiApp()));
 
+  // Start both services immediately after the first frame. AdMob waits for
+  // SDK initialization before requesting ads, then preloads all ad formats.
   unawaited(_initializeServices());
 }
 
 Future<void> _initializeServices() async {
+  await Future.wait([
+    _initializeSound(),
+    _initializeAds(),
+  ]);
+}
+
+Future<void> _initializeSound() async {
   try {
     await SoundService.instance.initialize();
   } catch (e) {
     debugPrint('SoundService initialization failed: $e');
   }
+}
 
+Future<void> _initializeAds() async {
   try {
     await AdService.instance.initialize();
   } catch (e) {
