@@ -1,0 +1,50 @@
+name: Fix Free Play Clock To Lesson Clock
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: !contains(github.event.head_commit.message, '[freeplay-clock]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Replace Free Play clock with lesson clock usage
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/features/curriculum/presentation/pages/free_play_page.dart')
+          s = p.read_text()
+
+          old = """  int _h = 3, _m = 0;"""
+          new = """  // Same starting state as the working LessonPage set-hands clock.\n  // The InteractiveClock owns its own hand state; _h/_m only mirror its output.\n  int _h = 12, _m = 0;"""
+          if old not in s:
+              raise SystemExit('state pattern not found')
+          s = s.replace(old, new, 1)
+
+          s = s.replace("""        _h = 3;\n        _m = 0;""", """        _h = 12;\n        _m = 0;""")
+
+          old_clock = """                        InteractiveClock(\n                          key: ValueKey('${_challengeLesson?.id}:$_challengeIndex'),\n                          initialHour: _h,\n                          initialMinute: _m,\n                          size: clockSz,\n                          color: WaqtiColors.primary,\n                          onChanged: _onChanged,\n                        ),"""
+          new_clock = """                        // EXACT SAME PATTERN AS LessonPage: initial values stay\n                        // fixed during the gesture; onChanged only mirrors the\n                        // clock's internal state into the parent. A challenge\n                        // key recreates the lesson clock for each new question.\n                        InteractiveClock(\n                          key: ValueKey('lesson-clock:${_challengeLesson?.id}:$_challengeIndex'),\n                          initialHour: 12,\n                          initialMinute: 0,\n                          size: clockSz,\n                          color: WaqtiColors.primary,\n                          onChanged: _onChanged,\n                        ),"""
+          if old_clock not in s:
+              raise SystemExit('clock pattern not found')
+          s = s.replace(old_clock, new_clock, 1)
+
+          p.write_text(s)
+          PY
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/features/curriculum/presentation/pages/free_play_page.dart .github/workflows/fix-freeplay-clock.yml
+          git commit -m "fix(clock): copy lesson clock behavior to free play and smart review [freeplay-clock]"
+          git push
+          git rm .github/workflows/fix-freeplay-clock.yml
+          git commit -m "chore(ci): remove temporary free play clock patch [freeplay-clock]"
+          git push
