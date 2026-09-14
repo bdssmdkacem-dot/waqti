@@ -156,7 +156,6 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
   @override
   Widget build(BuildContext context) {
     final h12 = _h > 12 ? _h - 12 : (_h == 0 ? 12 : _h);
-    final clockSz = WaqtiSize.clockSize(context).clamp(230.0, 320.0);
     final ads = ref.watch(adServiceProvider);
 
     return Directionality(
@@ -233,11 +232,8 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                       ),
                       child: Column(children: [
                         InteractiveClock(
-                          key: ValueKey('lesson-clock:${_challengeLesson?.id}:$_challengeIndex'),
-                          initialHour: 12,
-                          initialMinute: 0,
-                          size: clockSz,
-                          color: WaqtiColors.primary,
+                          initialHour: 12, initialMinute: 0,
+                          size: WaqtiSize.lessonClockSize(context), color: WaqtiColors.primary,
                           onChanged: _onChanged,
                         ),
                         const SizedBox(height: 12),
