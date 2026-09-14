@@ -23,7 +23,7 @@ class FreePlayPage extends ConsumerStatefulWidget {
 }
 
 class _FreePlayPageState extends ConsumerState<FreePlayPage> {
-  int _h = 3, _m = 0;
+  int _h = 12, _m = 0;
   WaqtiLesson? _challengeLesson;
   int? _challengeIndex;
   bool _challengeAnswered = false;
@@ -63,8 +63,6 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
     }
   }
 
-  // Use the exact same InteractiveClock as the lessons. The clock itself
-  // owns hand selection/dragging; this callback only receives the new time.
   void _onChanged(int h, int m) {
     setState(() {
       _h = h;
@@ -101,7 +99,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
         _challengeAnswered = false;
         _challengeCorrect = null;
         _reviewComplete = false;
-        _h = 3;
+        _h = 12;
         _m = 0;
       });
       return;
@@ -123,7 +121,8 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
       _challengeIndex = index;
       _challengeAnswered = false;
       _challengeCorrect = null;
-      _h = 3;
+      _reviewComplete = false;
+      _h = 12;
       _m = 0;
     });
   }
@@ -234,9 +233,9 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                       ),
                       child: Column(children: [
                         InteractiveClock(
-                          key: ValueKey('${_challengeLesson?.id}:$_challengeIndex'),
-                          initialHour: _h,
-                          initialMinute: _m,
+                          key: ValueKey('lesson-clock:${_challengeLesson?.id}:$_challengeIndex'),
+                          initialHour: 12,
+                          initialMinute: 0,
                           size: clockSz,
                           color: WaqtiColors.primary,
                           onChanged: _onChanged,
