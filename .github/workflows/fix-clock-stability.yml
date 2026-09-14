@@ -1,0 +1,50 @@
+name: Patch clock stability
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, '[clock-stability]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make InteractiveClock behave like the lesson clock
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/shared/widgets/analog_clock.dart')
+          s = p.read_text()
+          old = '''  @override
+  void didUpdateWidget(covariant InteractiveClock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialHour != widget.initialHour || oldWidget.initialMinute != widget.initialMinute) {
+      _h = widget.initialHour;
+      _m = widget.initialMinute;
+      _dragging = null;
+    }
+  }
+
+'''
+          if old not in s:
+              raise SystemExit('didUpdateWidget block not found')
+          s = s.replace(old, '', 1)
+          p.write_text(s)
+
+          wf = Path('.github/workflows/fix-clock-stability.yml')
+          wf.unlink()
+          PY
+      - name: Commit clock fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/shared/widgets/analog_clock.dart
+          git rm -f .github/workflows/fix-clock-stability.yml
+          git commit -m 'fix(clock): match lesson interaction in free play and smart review [clock-stability]'
+          git push
