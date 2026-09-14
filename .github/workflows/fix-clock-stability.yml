@@ -13,11 +13,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Make InteractiveClock behave like the lesson clock
+      - name: Apply exact lesson clock pattern
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
+          # Keep the shared clock's working lesson implementation intact.
+          # The lesson's set-hands clock always receives fixed 12:00 initial values.
+          # Free Play / Smart Review must do exactly the same: parent state receives
+          # onChanged values, but those values are never fed back as initial values.
+          p = Path('lib/features/curriculum/presentation/pages/free_play_page.dart')
+          s = p.read_text()
+
+          old = '''                          initialHour: _h,
+                          initialMinute: _m,
+'''
+          new = '''                          // EXACT same initialization as LessonPage._buildSetHands.
+                          initialHour: 12,
+                          initialMinute: 0,
+'''
+          if old not in s:
+              raise SystemExit('Free Play clock initialization block not found')
+          s = s.replace(old, new, 1)
+          s = s.replace('        _h = 3;\n        _m = 0;', '        _h = 12;\n        _m = 0;')
+          s = s.replace('      _h = 3;\n      _m = 0;', '      _h = 12;\n      _m = 0;')
+          p.write_text(s)
+
+          # Also remove the shared widget lifecycle reset. This is safe because
+          # lesson and challenge clocks use fixed initial values until a new key.
           p = Path('lib/shared/widgets/analog_clock.dart')
           s = p.read_text()
           old = '''  @override
@@ -31,20 +55,19 @@ jobs:
   }
 
 '''
-          if old not in s:
-              raise SystemExit('didUpdateWidget block not found')
-          s = s.replace(old, '', 1)
+          if old in s:
+              s = s.replace(old, '', 1)
           p.write_text(s)
 
           wf = Path('.github/workflows/fix-clock-stability.yml')
           wf.unlink()
           PY
-      - name: Commit clock fix
+      - name: Commit exact lesson clock fix
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add lib/shared/widgets/analog_clock.dart
+          git add lib/features/curriculum/presentation/pages/free_play_page.dart lib/shared/widgets/analog_clock.dart
           git rm -f .github/workflows/fix-clock-stability.yml
-          git commit -m 'fix(clock): match lesson interaction in free play and smart review [clock-stability]'
+          git commit -m 'fix(clock): use exact lesson clock pattern in free play and smart review [clock-stability]'
           git push
