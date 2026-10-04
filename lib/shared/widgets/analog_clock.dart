@@ -16,9 +16,19 @@ class AnalogClock extends StatelessWidget {
 }
 
 class InteractiveClock extends StatefulWidget {
-  const InteractiveClock({super.key, required this.initialHour, required this.initialMinute, required this.onChanged, this.size = 240, this.color = WaqtiColors.primary});
+  const InteractiveClock({
+    super.key,
+    required this.initialHour,
+    required this.initialMinute,
+    required this.onChanged,
+    this.resetVersion = 0,
+    this.size = 240,
+    this.color = WaqtiColors.primary,
+  });
+
   final int initialHour, initialMinute;
   final void Function(int h, int m) onChanged;
+  final int resetVersion;
   final double size;
   final Color color;
 
@@ -29,6 +39,7 @@ class InteractiveClock extends StatefulWidget {
 class _InteractiveClockState extends State<InteractiveClock> {
   late int _h, _m;
   String? _dragging;
+  double? _lastAngle;
 
   @override
   void initState() {
@@ -40,10 +51,13 @@ class _InteractiveClockState extends State<InteractiveClock> {
   @override
   void didUpdateWidget(covariant InteractiveClock oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialHour != widget.initialHour || oldWidget.initialMinute != widget.initialMinute) {
+    if (oldWidget.resetVersion != widget.resetVersion ||
+        oldWidget.initialHour != widget.initialHour ||
+        oldWidget.initialMinute != widget.initialMinute) {
       _h = widget.initialHour;
       _m = widget.initialMinute;
       _dragging = null;
+      _lastAngle = null;
     }
   }
 
@@ -59,14 +73,25 @@ class _InteractiveClockState extends State<InteractiveClock> {
 
   void _onStart(Offset local) {
     final deg = _angleDeg(local);
-    final hourDeg = ((_h % 12) * 30 + _m * .5) % 360;
-    final minDeg = (_m * 6.0) % 360;
-    final hourDistance = _diff(deg, hourDeg);
-    final minuteDistance = _diff(deg, minDeg);
+    final center = Offset(widget.size / 2, widget.size / 2);
+    final radius = (local - center).distance;
 
-    // This is the interaction used by the lesson clock: select the hand
-    // whose direction is closest to the point where the learner starts.
-    _dragging = hourDistance <= minuteDistance ? 'hour' : 'minute';
+    final hourDeg = ((_h % 12) * 30 + _m * .5) % 360;
+    final minuteDeg = (_m * 6.0) % 360;
+    final hourDistance = _diff(deg, hourDeg);
+    final minuteDistance = _diff(deg, minuteDeg);
+
+    // Prefer the outer area for the minute hand and the inner area for
+    // the hour hand. This avoids accidental selection when hands overlap.
+    if (radius >= widget.size * .38) {
+      _dragging = 'minute';
+    } else if (radius >= widget.size * .16) {
+      _dragging = 'hour';
+    } else {
+      _dragging = hourDistance <= minuteDistance ? 'hour' : 'minute';
+    }
+
+    _lastAngle = deg;
     _onMove(local);
   }
 
@@ -78,13 +103,15 @@ class _InteractiveClockState extends State<InteractiveClock> {
       if (_dragging == 'minute') {
         _m = ((deg / 6).round() % 60);
       } else {
-        // Remove the minute contribution so the hour hand stays consistent
-        // with the real clock: at 3:30 the hand is halfway between 3 and 4.
+        // Keep the minute contribution: at 3:30 the hour hand is halfway
+        // between 3 and 4, not directly over 3.
         final adjusted = (deg - _m * .5 + 360) % 360;
         final h12 = (adjusted / 30).round() % 12;
         _h = h12 == 0 ? 12 : h12;
       }
     });
+
+    _lastAngle = deg;
     widget.onChanged(_h, _m);
   }
 
@@ -93,8 +120,14 @@ class _InteractiveClockState extends State<InteractiveClock> {
     behavior: HitTestBehavior.opaque,
     onPanStart: (d) => _onStart(d.localPosition),
     onPanUpdate: (d) => _onMove(d.localPosition),
-    onPanEnd: (_) => _dragging = null,
-    onPanCancel: () => _dragging = null,
+    onPanEnd: (_) {
+      _dragging = null;
+      _lastAngle = null;
+    },
+    onPanCancel: () {
+      _dragging = null;
+      _lastAngle = null;
+    },
     child: AnalogClock(hour: _h, minute: _m, size: widget.size, color: widget.color),
   );
 }
