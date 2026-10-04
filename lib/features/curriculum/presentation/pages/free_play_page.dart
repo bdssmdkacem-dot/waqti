@@ -24,6 +24,7 @@ class FreePlayPage extends ConsumerStatefulWidget {
 
 class _FreePlayPageState extends ConsumerState<FreePlayPage> {
   int _h = 12, _m = 0;
+  int _clockResetVersion = 0;
   WaqtiLesson? _challengeLesson;
   int? _challengeIndex;
   bool _challengeAnswered = false;
@@ -101,6 +102,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
         _reviewComplete = false;
         _h = 12;
         _m = 0;
+        _clockResetVersion++;
       });
       return;
     }
@@ -124,6 +126,7 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
       _reviewComplete = false;
       _h = 12;
       _m = 0;
+      _clockResetVersion++;
     });
   }
 
@@ -232,8 +235,11 @@ class _FreePlayPageState extends ConsumerState<FreePlayPage> {
                       ),
                       child: Column(children: [
                         InteractiveClock(
-                          initialHour: 12, initialMinute: 0,
-                          size: WaqtiSize.lessonClockSize(context), color: WaqtiColors.primary,
+                          initialHour: 12,
+                          initialMinute: 0,
+                          resetVersion: _clockResetVersion,
+                          size: WaqtiSize.lessonClockSize(context),
+                          color: WaqtiColors.primary,
                           onChanged: _onChanged,
                         ),
                         const SizedBox(height: 12),
