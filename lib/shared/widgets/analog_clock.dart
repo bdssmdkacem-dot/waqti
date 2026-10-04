@@ -39,7 +39,6 @@ class InteractiveClock extends StatefulWidget {
 class _InteractiveClockState extends State<InteractiveClock> {
   late int _h, _m;
   String? _dragging;
-  double? _lastAngle;
 
   @override
   void initState() {
@@ -57,7 +56,6 @@ class _InteractiveClockState extends State<InteractiveClock> {
       _h = widget.initialHour;
       _m = widget.initialMinute;
       _dragging = null;
-      _lastAngle = null;
     }
   }
 
@@ -91,7 +89,6 @@ class _InteractiveClockState extends State<InteractiveClock> {
       _dragging = hourDistance <= minuteDistance ? 'hour' : 'minute';
     }
 
-    _lastAngle = deg;
     _onMove(local);
   }
 
@@ -111,7 +108,6 @@ class _InteractiveClockState extends State<InteractiveClock> {
       }
     });
 
-    _lastAngle = deg;
     widget.onChanged(_h, _m);
   }
 
@@ -122,7 +118,6 @@ class _InteractiveClockState extends State<InteractiveClock> {
     onPanUpdate: (d) => _onMove(d.localPosition),
     onPanEnd: (_) {
       _dragging = null;
-      _lastAngle = null;
     },
     onPanCancel: () {
       _dragging = null;
