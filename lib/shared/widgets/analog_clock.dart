@@ -121,7 +121,6 @@ class _InteractiveClockState extends State<InteractiveClock> {
     },
     onPanCancel: () {
       _dragging = null;
-      _lastAngle = null;
     },
     child: AnalogClock(hour: _h, minute: _m, size: widget.size, color: widget.color),
   );
