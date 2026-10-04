@@ -81,9 +81,9 @@ class _InteractiveClockState extends State<InteractiveClock> {
 
     // Prefer the outer area for the minute hand and the inner area for
     // the hour hand. This avoids accidental selection when hands overlap.
-    if (radius >= widget.size * .38) {
+    if (radius >= widget.size * .54) {
       _dragging = 'minute';
-    } else if (radius >= widget.size * .16) {
+    } else if (radius <= widget.size * .38) {
       _dragging = 'hour';
     } else {
       _dragging = hourDistance <= minuteDistance ? 'hour' : 'minute';
